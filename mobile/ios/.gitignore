@@ -1,0 +1,59 @@
+# OSX
+.DS_Store
+Thumbs.db
+
+# Bundle artifacts
+*.jsbundle
+
+# CocoaPods
+/Pods/
+
+# npm
+.npmrc
+node_modules
+
+# env
+.env
+.env.*
+!.env.example
+
+# weapp
+.swc/
+# web
+dist
+# ios
+build/
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+xcuserdata
+*.xccheckout
+*.moved-aside
+DerivedData
+*.hmap
+*.ipa
+*.xcuserstate
+project.xcworkspace
+.xcode.env.local
+Pods/
+
+# resource
+resources/pictures/
+resources/sounds/
+resources/texts/
+resources/vocabulary/
+*.otf
+*.mp3
+*.png
+*.jpg
+
+# log
+*.log
+
+# cache
+.cache

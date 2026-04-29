@@ -1,0 +1,7 @@
+{
+  "name": "carnival",
+  "private": true,
+  "scripts": {
+    "archive-and-upload:ios": "npm run archive-and-upload:ios --prefix mobile"
+  }
+}

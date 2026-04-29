@@ -1,0 +1,11 @@
+# IDE
+.idea/
+
+# Agent
+.cursorrules
+
+# Enviroment
+.env
+.env*
+!.env.example
+

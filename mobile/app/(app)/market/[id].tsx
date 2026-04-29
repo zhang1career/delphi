@@ -1,0 +1,238 @@
+import { useNavigation } from "@react-navigation/native";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  checkoutBetOrder,
+  createBetDraftOrder,
+  useBetMarketQuery,
+  useBetPointsBalanceQuery,
+  useBetSelectionsMarkets,
+} from "@/features/bet/hooks";
+import { MallApiError } from "@/lib/api/mallEnvelope";
+import type { SportSelection } from "@/lib/api/betTypes";
+import { formatDecimalOddsFromMillis } from "@/lib/api/betTypes";
+import { features } from "@/lib/config";
+import { useToast } from "@/lib/notifications/toast";
+
+export default function MarketDetailScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
+  const navigation = useNavigation();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const insets = useSafeAreaInsets();
+
+  const marketId = typeof id === "string" ? id : "";
+  const marketQ = useBetMarketQuery(marketId);
+  const selectionsQ = useBetSelectionsMarkets(marketId);
+  const pointsQ = useBetPointsBalanceQuery();
+
+  const [selectedKid, setSelectedKid] = useState<number | null>(null);
+  const [stakeRaw, setStakeRaw] = useState("100");
+  const [pointsRaw, setPointsRaw] = useState("");
+
+  const market = marketQ.data;
+  const lines = selectionsQ.data?.items ?? [];
+
+  useEffect(() => {
+    navigation.setOptions({ title: market ? `Market #${market.id}` : "Market" });
+  }, [market, navigation]);
+
+  const balanceMinor = pointsQ.data?.balance_minor ?? 0;
+
+  const mutate = useMutation({
+    mutationFn: async () => {
+      const kid = selectedKid ?? lines[0]?.id;
+      if (kid === null || kid === undefined || kid < 1) {
+        throw new Error("Choose an outcome.");
+      }
+      const stakePoints = Number.parseInt(stakeRaw.trim(), 10);
+      if (!Number.isFinite(stakePoints) || stakePoints < 1) {
+        throw new Error("Enter stake (points, ≥ 1).");
+      }
+      const draft = await createBetDraftOrder([{ kid, stake_points: stakePoints }]);
+      const pts = pointsRaw.trim();
+      let pointsMinor: number | undefined;
+      if (pts !== "") {
+        const n = Number.parseInt(pts, 10);
+        if (!Number.isFinite(n) || n < 0) {
+          throw new Error("Invalid points deduction.");
+        }
+        pointsMinor = Math.min(n, balanceMinor);
+      }
+      await checkoutBetOrder({
+        order_id: draft.id,
+        ...(pointsMinor !== undefined && pointsMinor > 0 ? { points_minor: pointsMinor } : {}),
+      });
+      return draft.id;
+    },
+    onSuccess(orderId: number) {
+      void queryClient.invalidateQueries({ queryKey: ["bet-orders"] });
+      void queryClient.invalidateQueries({ queryKey: ["bet-points"] });
+      toast.show("Order placed");
+      router.replace(`/(app)/order/${orderId}`);
+    },
+    onError(e: unknown) {
+      if (e instanceof MallApiError) {
+        toast.show(e.message.trim() || `Request failed (${e.errorCode})`);
+        return;
+      }
+      toast.show(e instanceof Error ? e.message : "Could not complete order.");
+    },
+  });
+
+  const lineKey = lines.map((x) => x.id).join(",");
+  useEffect(() => {
+    const firstId = lines[0]?.id;
+    if (firstId !== undefined && (selectedKid === null || !lines.some((x) => x.id === selectedKid))) {
+      setSelectedKid(firstId);
+    }
+  }, [lineKey, lines, selectedKid]);
+
+  if (!features.commerce) {
+    return (
+      <View className="flex-1 items-center justify-center px-6">
+        <Text className="text-slate-300 text-center">Catalog is off.</Text>
+      </View>
+    );
+  }
+
+  if (marketQ.isPending || selectionsQ.isPending) {
+    return (
+      <View className="flex-1 bg-surface justify-center items-center">
+        <ActivityIndicator color="#a5b4fc" />
+      </View>
+    );
+  }
+
+  if (marketQ.isError || !market) {
+    return (
+      <View className="flex-1 bg-surface px-6 justify-center">
+        <Text className="text-red-400 text-center">
+          {marketQ.error instanceof Error ? marketQ.error.message : "Could not load market."}
+        </Text>
+      </View>
+    );
+  }
+
+  const eventLabel =
+    typeof market.event?.name === "string" && market.event.name.trim()
+      ? market.event.name
+      : `Event ${market.event_id}`;
+
+  const bottomPad = insets.bottom + 120;
+
+  return (
+    <View className="flex-1 bg-surface">
+      <ScrollView contentContainerStyle={{ paddingBottom: bottomPad }}>
+        <View className="p-4">
+          <Text className="text-slate-400 text-sm">{eventLabel}</Text>
+          <Text className="text-slate-300 text-xs mt-1">
+            Market type · {market.market_type}
+          </Text>
+        </View>
+
+        {lines.map((line) => (
+          <SelectionRow
+            key={line.id}
+            line={line}
+            chosen={selectedKid === line.id}
+            onSelect={() => setSelectedKid(line.id)}
+          />
+        ))}
+
+        {lines.length === 0 ? (
+          <Text className="text-slate-500 px-4">No open selections for this market.</Text>
+        ) : null}
+
+        <View className="px-4 mt-6 gap-2">
+          <Text className="text-slate-400 text-xs">Stake (points)</Text>
+          <TextInput
+            className="rounded-xl border border-surface-border bg-surface-card px-3 py-2.5 text-slate-100"
+            keyboardType="number-pad"
+            placeholder="100"
+            placeholderTextColor="#64748b"
+            value={stakeRaw}
+            onChangeText={setStakeRaw}
+          />
+          <Text className="text-slate-400 text-xs mt-2">Pay with mall points at checkout</Text>
+          <View className="flex-row items-center justify-between mt-2">
+            <Text className="text-slate-500 text-xs">Balance (minor)</Text>
+            {pointsQ.isFetching && !pointsQ.data ? (
+              <ActivityIndicator color="#94a3b8" />
+            ) : (
+              <Text className="text-slate-200 text-sm">{balanceMinor}</Text>
+            )}
+          </View>
+          <Text className="text-slate-500 text-xs mt-2">
+            Checkout points_minor (≤ balance; leave empty if none).
+          </Text>
+          <TextInput
+            className="rounded-xl border border-surface-border bg-surface-card px-3 py-2.5 text-slate-100"
+            keyboardType="number-pad"
+            placeholder=""
+            placeholderTextColor="#64748b"
+            value={pointsRaw}
+            onChangeText={setPointsRaw}
+          />
+        </View>
+      </ScrollView>
+
+      <View
+        className="absolute left-0 right-0 border-t border-surface-border bg-surface px-4"
+        style={{ bottom: 0, paddingBottom: insets.bottom }}
+      >
+        <Pressable
+          accessibilityLabel="Place bet draft and checkout"
+          disabled={lines.length === 0 || mutate.isPending}
+          onPress={() => mutate.mutate()}
+          className={`my-3 py-3.5 rounded-xl items-center justify-center ${
+            lines.length === 0 || mutate.isPending ? "bg-slate-600 opacity-70" : "bg-brand active:opacity-90"
+          }`}
+        >
+          {mutate.isPending ? (
+            <ActivityIndicator color="#f8fafc" />
+          ) : (
+            <Text className="text-white font-semibold text-base">Place order (checkout)</Text>
+          )}
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+function SelectionRow({
+  line,
+  chosen,
+  onSelect,
+}: {
+  line: SportSelection;
+  chosen: boolean;
+  onSelect: () => void;
+}) {
+  const odds = useMemo(() => formatDecimalOddsFromMillis(line.current_odds_millis), [line.current_odds_millis]);
+  return (
+    <Pressable
+      onPress={onSelect}
+      accessibilityRole="radio"
+      accessibilityState={{ checked: chosen }}
+      className={`mx-4 mb-2 rounded-xl border p-4 ${
+        chosen ? "border-brand bg-surface-card" : "border-surface-border bg-surface"
+      } active:opacity-90`}
+    >
+      <Text className="text-slate-100 font-medium">{line.label}</Text>
+      <Text className="text-brand-muted text-lg mt-1">{odds}</Text>
+      <Text className="text-slate-600 text-[10px] mt-2">kid {line.id}</Text>
+    </Pressable>
+  );
+}
