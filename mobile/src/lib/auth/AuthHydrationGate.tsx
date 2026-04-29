@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Text, View } from "react-native";
+import { Platform, Text, View, type ViewStyle } from "react-native";
 import { refreshSessionWithRefreshToken } from "@/lib/api/login";
 import { applySession, clearSession } from "@/lib/auth/sessionLifecycle";
 import { loadPersistedTokens } from "@/lib/auth/secureTokenStore";
@@ -51,6 +51,9 @@ export function AuthHydrationGate({ children }: AuthHydrationGateProps) {
           backgroundColor: "#0f172a",
           justifyContent: "center",
           alignItems: "center",
+          ...(Platform.OS === "web"
+            ? ({ minHeight: "100vh" } as unknown as ViewStyle)
+            : {}),
         }}
       >
         <Text style={{ color: "#94a3b8", fontSize: 16 }}>登陆中...</Text>

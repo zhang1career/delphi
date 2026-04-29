@@ -1,15 +1,33 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
+import { NativeWindStyleSheet } from "nativewind";
 import { useEffect, useMemo, useState } from "react";
+import { Platform, type ViewStyle } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthHydrationGate } from "@/lib/auth/AuthHydrationGate";
 import { ToastProvider } from "@/lib/notifications/toast";
 import { initServiceOrigins } from "@/lib/serviceOrigins";
 
+/** RN Web defaults to NativeWind "css" output; with Expo Metro it leaves utilities inert (no rules for `.bg-brand`). */
+if (Platform.OS === "web") {
+  NativeWindStyleSheet.setOutput({ web: "native", default: "native" });
+}
+
 export default function RootLayout() {
   const queryClient = useMemo(() => new QueryClient(), []);
   const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS !== "web" || typeof document === "undefined") {
+      return;
+    }
+    const prevBodyMargin = document.body.style.margin;
+    document.body.style.margin = "0";
+    return () => {
+      document.body.style.margin = prevBodyMargin;
+    };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -32,7 +50,15 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#0f172a" }}>
+    <GestureHandlerRootView
+      style={{
+        flex: 1,
+        backgroundColor: "#0f172a",
+        ...(Platform.OS === "web"
+          ? ({ minHeight: "100vh" } as unknown as ViewStyle)
+          : {}),
+      }}
+    >
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
           <ToastProvider>

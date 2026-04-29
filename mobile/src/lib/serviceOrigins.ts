@@ -7,6 +7,8 @@ import {
   apiGatewayPort,
 } from "@/lib/config";
 import { fetchWithHttpDebug } from "@/lib/httpDebug";
+import { Platform } from "react-native";
+import { WEB_DEV_CONFIG_PROXY_PATH } from "../../devConfigProxyPath.js";
 
 type ConfigHostEnvelope = {
   errorCode?: number;
@@ -46,17 +48,34 @@ function toHttpOrigin(host: string, port: string): string {
   return `http://${host}:${port}`;
 }
 
+function isWebDevUsingMetroProxy(): boolean {
+  return (
+    Platform.OS === "web" &&
+    typeof __DEV__ !== "undefined" &&
+    __DEV__ === true &&
+    typeof window !== "undefined" &&
+    typeof window.location?.origin === "string"
+  );
+}
+
 async function fetchConfigHost(): Promise<string> {
-  const baseUrl = requiredEnv("API_CONFIG_PUBLIC_URL", apiConfigPublicUrl);
-  const accessKey = requiredEnv("API_CONFIG_ACCESS_KEY", apiConfigAccessKey);
-  const key = requiredEnv("API_CONFIG_PUBLIC_KEY", apiConfigPublicKey);
-  console.log("[serviceOrigins] request config host", { url: baseUrl });
+  const useDevProxy = isWebDevUsingMetroProxy();
+  const baseUrl = useDevProxy
+    ? `${window.location.origin}${WEB_DEV_CONFIG_PROXY_PATH}`
+    : requiredEnv("API_CONFIG_PUBLIC_URL", apiConfigPublicUrl);
+  const accessKey = useDevProxy ? "" : requiredEnv("API_CONFIG_ACCESS_KEY", apiConfigAccessKey);
+  const key = useDevProxy ? "" : requiredEnv("API_CONFIG_PUBLIC_KEY", apiConfigPublicKey);
+  console.log("[serviceOrigins] request config host", { url: baseUrl, useDevProxy });
   const res = await fetchWithHttpDebug(baseUrl, {
     method: "GET",
-    headers: {
-      "X-Config-Access-Key": accessKey,
-      "X-Config-Key": key,
-    },
+    ...(useDevProxy
+      ? {}
+      : {
+          headers: {
+            "X-Config-Access-Key": requiredEnv("API_CONFIG_ACCESS_KEY", apiConfigAccessKey),
+            "X-Config-Key": requiredEnv("API_CONFIG_PUBLIC_KEY", apiConfigPublicKey),
+          },
+        }),
   });
   if (!res.ok) {
     throw new Error(`Config API failed: HTTP ${res.status}`);
