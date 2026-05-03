@@ -2,10 +2,10 @@
 
 export const BET_DICT_PATH = "/api/bet/dict";
 
-export const BET_EVENTS_PATH = "/api/bet/events";
+export const BET_GAMES_PATH = "/api/bet/games";
 
-export function betEventPath(eventId: number): string {
-  return `/api/bet/events/${eventId}`;
+export function betGamePath(gameId: number): string {
+  return `/api/bet/games/${gameId}`;
 }
 
 export const BET_MARKETS_PATH = "/api/bet/markets";

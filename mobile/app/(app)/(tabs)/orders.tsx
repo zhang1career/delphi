@@ -2,12 +2,14 @@ import { useRouter } from "expo-router";
 import {
   ActivityIndicator,
   FlatList,
+  Platform,
   Pressable,
   RefreshControl,
   Text,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useWebTopTabBarInset } from "@/lib/navigation/useWebTopTabBarInset";
 import { useOrdersInfiniteQuery } from "@/features/orders/hooks";
 import { betOrderStatusLabel } from "@/lib/api/betTypes";
 import { features } from "@/lib/config";
@@ -27,6 +29,7 @@ function formatTime(sec: number): string {
 export default function OrdersScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const webNavTop = useWebTopTabBarInset();
   const {
     data,
     isPending,
@@ -42,14 +45,20 @@ export default function OrdersScreen() {
 
   if (!features.orders) {
     return (
-      <View className="flex-1 items-center justify-center px-6" style={{ paddingTop: insets.top }}>
+      <View
+        className="flex-1 items-center justify-center px-6"
+        style={{ paddingTop: Platform.OS === "web" ? webNavTop : insets.top }}
+      >
         <Text className="text-slate-300 text-center">Orders tab is off in app config features.</Text>
       </View>
     );
   }
 
   return (
-    <View className="flex-1 bg-surface" style={{ paddingTop: insets.top + 8 }}>
+    <View
+      className="flex-1 bg-surface"
+      style={{ paddingTop: Platform.OS === "web" ? webNavTop + 8 : insets.top + 8 }}
+    >
       <Text className="text-xl font-bold text-slate-100 px-4 mb-2">Orders</Text>
       <FlatList
         data={rows}

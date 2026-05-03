@@ -5,10 +5,12 @@ import {
   cdnDistributionId,
   servFdPort,
   apiGatewayPort,
+  webDevGatewayProxyOrigin,
 } from "@/lib/config";
 import { fetchWithHttpDebug } from "@/lib/httpDebug";
 import { Platform } from "react-native";
 import { WEB_DEV_CONFIG_PROXY_PATH } from "../../devConfigProxyPath.js";
+import { WEB_DEV_GATEWAY_PROXY_PATH } from "../../devGatewayProxyPath.js";
 
 type ConfigHostEnvelope = {
   errorCode?: number;
@@ -58,6 +60,22 @@ function isWebDevUsingMetroProxy(): boolean {
   );
 }
 
+function normalizeHttpOrigin(origin: string): string {
+  return origin.trim().replace(/\/$/, "");
+}
+
+/** Metro proxies `/__expo_dev_gateway_proxy__/*` to this origin when set and matches config gateway base (Web dev only). */
+function shouldUseWebDevGatewayProxy(gatewayBase: string): boolean {
+  if (!isWebDevUsingMetroProxy()) {
+    return false;
+  }
+  const configured = webDevGatewayProxyOrigin.trim();
+  if (!configured) {
+    return false;
+  }
+  return normalizeHttpOrigin(gatewayBase) === normalizeHttpOrigin(configured);
+}
+
 async function fetchConfigHost(): Promise<string> {
   const useDevProxy = isWebDevUsingMetroProxy();
   const baseUrl = useDevProxy
@@ -98,6 +116,26 @@ async function createOrigins(): Promise<ServiceOrigins> {
   const gatewayBase = toHttpOrigin(host, requiredEnv("API_GATEWAY_PORT", apiGatewayPort));
   const servFdBase = toHttpOrigin(host, requiredEnv("SERV_FD_PORT", servFdPort));
   const cdnDist = requiredEnv("CDN_DISTRIBUTION_ID", cdnDistributionId);
+
+  const useGatewayProxy = shouldUseWebDevGatewayProxy(gatewayBase);
+  if (isWebDevUsingMetroProxy() && webDevGatewayProxyOrigin.trim() && !useGatewayProxy) {
+    console.warn(
+      "[serviceOrigins] WEB_DEV_GATEWAY_PROXY_ORIGIN does not match config gateway base; direct gateway URLs may hit CORS on Web.",
+      { gatewayBase, webDevGatewayProxyOrigin },
+    );
+  }
+  if (useGatewayProxy && typeof window !== "undefined") {
+    const proxyRoot = `${window.location.origin}${WEB_DEV_GATEWAY_PROXY_PATH}`;
+    console.log("[serviceOrigins] web dev gateway proxy (same-origin to Metro)", { gatewayBase, proxyRoot });
+    return {
+      host,
+      userAggBaseUrl: proxyRoot,
+      mallAggBaseUrl: proxyRoot,
+      servFdBaseUrl: servFdBase,
+      mallCdnBaseUrl: `${proxyRoot}${MALL_CDN_PATH_PREFIX}/${cdnDist}`,
+    };
+  }
+
   return {
     host,
     userAggBaseUrl: gatewayBase,

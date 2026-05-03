@@ -8,6 +8,7 @@ export async function applySession(session: LoginSession): Promise<void> {
   await persistAuthTokens({
     accessToken: session.accessToken,
     refreshToken: session.refreshToken,
+    user: session.user,
   });
 }
 

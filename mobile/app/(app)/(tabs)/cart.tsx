@@ -7,12 +7,14 @@ import {
   ActivityIndicator,
   FlatList,
   Image,
+  Platform,
   Pressable,
   Text,
   TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useWebTopTabBarInset } from "@/lib/navigation/useWebTopTabBarInset";
 import { useBetPointsBalanceQuery } from "@/features/orders/hooks";
 import { checkoutMall, createMallOrder } from "@/lib/api/mallOrdersApi";
 import { MallApiError } from "@/lib/api/mallEnvelope";
@@ -57,6 +59,7 @@ function parsePointsMinorInput(raw: string, balanceMinor: number): number {
 export default function CartScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const webNavTop = useWebTopTabBarInset();
   const toast = useToast();
   const queryClient = useQueryClient();
   const token = useAuthStore((s) => s.accessToken);
@@ -129,7 +132,10 @@ export default function CartScreen() {
 
   if (!features.cart) {
     return (
-      <View className="flex-1 items-center justify-center px-6" style={{ paddingTop: insets.top }}>
+      <View
+        className="flex-1 items-center justify-center px-6"
+        style={{ paddingTop: Platform.OS === "web" ? webNavTop : insets.top }}
+      >
         <Text className="text-slate-300 text-center">购物车已在应用配置中关闭。</Text>
       </View>
     );
@@ -139,7 +145,10 @@ export default function CartScreen() {
 
   return (
     <View className="flex-1 bg-surface">
-      <View className="px-4 pb-2" style={{ paddingTop: insets.top + 16 }}>
+      <View
+        className="px-4 pb-2"
+        style={{ paddingTop: Platform.OS === "web" ? webNavTop + 16 : insets.top + 16 }}
+      >
         <Text className="text-xl font-bold text-slate-100">Cart</Text>
       </View>
 

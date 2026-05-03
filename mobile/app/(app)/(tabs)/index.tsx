@@ -2,16 +2,19 @@ import { useRouter } from "expo-router";
 import {
   ActivityIndicator,
   FlatList,
+  Platform,
   Pressable,
   RefreshControl,
   Text,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useWebTopTabBarInset } from "@/lib/navigation/useWebTopTabBarInset";
 import type { BannerSlide } from "@/components/app/BannerCarousel";
 import { BannerCarousel } from "@/components/app/BannerCarousel";
 import { useBetEventsInfiniteQuery, useBetMarketsInfiniteQuery } from "@/features/bet/hooks";
 import type { SportMarket } from "@/lib/api/betTypes";
+import { betGameAssetCdnUri } from "@/lib/betCdn";
 import { features } from "@/lib/config";
 
 function MarketRow({ item, onPress }: { item: SportMarket; onPress: () => void }) {
@@ -38,21 +41,33 @@ function MarketRow({ item, onPress }: { item: SportMarket; onPress: () => void }
 export default function BetHomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const webNavTop = useWebTopTabBarInset();
   const eventsQ = useBetEventsInfiniteQuery(12);
   const marketsQ = useBetMarketsInfiniteQuery({});
 
   const eventRows = eventsQ.data?.pages.flatMap((p) => p.items) ?? [];
   const marketRows = marketsQ.data?.pages.flatMap((p) => p.items) ?? [];
 
-  const bannerSlides: BannerSlide[] = eventRows.slice(0, 8).map((ev) => ({
-    id: String(ev.id),
-    title: ev.name,
-    imageUrl: `https://picsum.photos/seed/betev${ev.id}/800/400`,
-  }));
+  const bannerSlides: BannerSlide[] = eventRows
+    .map((ev) => {
+      const imageUrl =
+        ev.bannerCdnUrl ??
+        betGameAssetCdnUri(ev.banner) ??
+        betGameAssetCdnUri(ev.main_media);
+      if (!imageUrl) {
+        return null;
+      }
+      return { id: String(ev.id), title: ev.name, imageUrl };
+    })
+    .filter((s): s is BannerSlide => s !== null)
+    .slice(0, 8);
 
   if (!features.commerce) {
     return (
-      <View className="flex-1 items-center justify-center px-6" style={{ paddingTop: insets.top }}>
+      <View
+        className="flex-1 items-center justify-center px-6"
+        style={{ paddingTop: Platform.OS === "web" ? webNavTop : insets.top }}
+      >
         <Text className="text-slate-300 text-center">Catalog is off in app config features.commerce.</Text>
       </View>
     );
@@ -63,7 +78,10 @@ export default function BetHomeScreen() {
   const refetching = eventsQ.isRefetching || marketsQ.isRefetching;
 
   return (
-    <View className="flex-1 bg-surface" style={{ paddingTop: insets.top + 8 }}>
+    <View
+      className="flex-1 bg-surface"
+      style={{ paddingTop: Platform.OS === "web" ? webNavTop + 8 : insets.top + 8 }}
+    >
       <Text className="text-xl font-bold text-slate-100 px-4 mb-2">Markets</Text>
       <FlatList
         data={marketRows}
@@ -79,7 +97,7 @@ export default function BetHomeScreen() {
         ListHeaderComponent={
           <>
             <BannerCarousel
-              slides={bannerSlides.length > 0 ? bannerSlides : undefined}
+              slides={bannerSlides}
               onSlidePress={(s) => router.push(`/(app)/event/${s.id}`)}
             />
             {err ? (

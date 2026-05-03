@@ -88,6 +88,8 @@ module.exports = {
       apiGatewayPort: envTrim("API_GATEWAY_PORT"),
       servFdPort: envTrim("SERV_FD_PORT"),
       cdnDistributionId: envTrim("CDN_DISTRIBUTION_ID"),
+      /** Web dev: must match resolved gateway base URL; Metro forwards this origin server-side (avoids browser CORS). */
+      webDevGatewayProxyOrigin: envTrim("WEB_DEV_GATEWAY_PROXY_ORIGIN"),
       tokenRefreshIntervalMs: (() => {
         const raw = process.env.TOKEN_REFRESH_INTERVAL_MS;
         if (raw == null || String(raw).trim() === "") return undefined;

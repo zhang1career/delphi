@@ -1,8 +1,15 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
-import { BottomTabBar } from "@react-navigation/bottom-tabs";
+import { BottomTabBar, BottomTabBarHeightCallbackContext } from "@react-navigation/bottom-tabs";
 import * as React from "react";
-import { Platform, Pressable, Text, View, useWindowDimensions } from "react-native";
+import {
+  Platform,
+  Pressable,
+  Text,
+  View,
+  useWindowDimensions,
+  type LayoutChangeEvent,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { features } from "@/lib/config";
 
@@ -20,20 +27,32 @@ export function BetTabBar(props: BottomTabBarProps): React.ReactElement {
   const window = useWindowDimensions();
   const safe = useSafeAreaInsets();
   const padHorizontal = Math.max(16, (window.width - 900) / 2);
+  const onTabBarHeight = React.useContext(BottomTabBarHeightCallbackContext);
 
   if (Platform.OS !== "web") {
     return <BottomTabBar {...props} />;
   }
 
+  const handleLayout = (e: LayoutChangeEvent): void => {
+    const h = e.nativeEvent.layout.height;
+    onTabBarHeight?.(h);
+  };
+
   return (
     <View
       className="bg-[#0f172a] border-b border-[#334155]"
       style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 100,
         paddingTop: safe.top + 10,
         paddingBottom: 12,
         paddingLeft: padHorizontal,
         paddingRight: padHorizontal,
       }}
+      onLayout={handleLayout}
     >
       <View className="flex-row flex-wrap gap-2 items-center justify-center md:justify-start">
         {state.routes.map((route, index) => {

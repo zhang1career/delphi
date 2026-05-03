@@ -23,7 +23,7 @@ export function AuthHydrationGate({ children }: AuthHydrationGateProps) {
         if (tokens == null) {
           return;
         }
-        const session = await refreshSessionWithRefreshToken(tokens.refreshToken, null);
+        const session = await refreshSessionWithRefreshToken(tokens.refreshToken, tokens.user);
         if (cancelled) {
           return;
         }

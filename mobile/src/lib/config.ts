@@ -7,6 +7,7 @@ type Extra = {
   apiGatewayPort?: string;
   servFdPort?: string;
   cdnDistributionId?: string;
+  webDevGatewayProxyOrigin?: string;
   tokenRefreshIntervalMs?: number;
   features?: {
     commerce?: boolean;
@@ -28,6 +29,7 @@ export const apiConfigAccessKey = readTrimmed(extra.apiConfigAccessKey);
 export const apiGatewayPort = readTrimmed(extra.apiGatewayPort);
 export const servFdPort = readTrimmed(extra.servFdPort);
 export const cdnDistributionId = readTrimmed(extra.cdnDistributionId);
+export const webDevGatewayProxyOrigin = readTrimmed(extra.webDevGatewayProxyOrigin);
 
 /** From `.env` `TOKEN_REFRESH_INTERVAL_MS` via `app.config.js`. Null disables periodic refresh. */
 export const tokenRefreshIntervalMs: number | null = (() => {
