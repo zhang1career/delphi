@@ -42,15 +42,15 @@ export function useBetEventQuery(eventId: string) {
 
 export function useBetMarketsInfiniteQuery(opts: { eventId?: string; perPage?: number }) {
   const numeric = opts.eventId != null ? Number.parseInt(opts.eventId, 10) : NaN;
-  const event_id = Number.isFinite(numeric) && numeric >= 1 ? numeric : undefined;
+  const game_id = Number.isFinite(numeric) && numeric >= 1 ? numeric : undefined;
   const perPage = opts.perPage ?? DEFAULT_PER_PAGE;
   return useInfiniteQuery({
-    queryKey: ["bet-markets", "paged", perPage, event_id ?? "_all"],
+    queryKey: ["bet-markets", "paged", perPage, game_id ?? "_all"],
     queryFn: ({ pageParam }) =>
       fetchBetMarketsPage({
         page: pageParam,
         per_page: perPage,
-        ...(event_id !== undefined ? { event_id } : {}),
+        ...(game_id !== undefined ? { game_id } : {}),
       }),
     initialPageParam: 1,
     getNextPageParam: (last) => {

@@ -31,10 +31,10 @@ function Row({ item, onPress }: { item: SportMarket; onPress: () => void }) {
       onPress={onPress}
       className="mx-4 mb-3 bg-surface-card rounded-xl border border-surface-border p-4 active:opacity-90"
     >
-      <Text className="text-slate-100 font-semibold">Market #{item.id}</Text>
-      <Text className="text-slate-500 text-xs mt-1">
-        Market type · {item.market_type} · status {item.status}
+      <Text className="text-slate-100 font-semibold">
+        {item.name.trim().length > 0 ? item.name : `Market #${item.id}`}
       </Text>
+      <Text className="text-slate-500 text-xs mt-1">#{item.id} · status {item.status}</Text>
     </Pressable>
   );
 }

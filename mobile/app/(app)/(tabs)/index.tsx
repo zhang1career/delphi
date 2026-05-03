@@ -18,22 +18,22 @@ import { betGameAssetCdnUri } from "@/lib/betCdn";
 import { features } from "@/lib/config";
 
 function MarketRow({ item, onPress }: { item: SportMarket; onPress: () => void }) {
-  const eventName =
-    typeof item.event?.name === "string" && item.event.name.trim().length > 0
-      ? item.event.name
-      : `Event ${item.event_id}`;
+  const gameName =
+    typeof item.game?.name === "string" && item.game.name.trim().length > 0
+      ? item.game.name
+      : `Game ${item.game_id}`;
   return (
     <Pressable
       onPress={onPress}
       className="flex-1 m-2 min-w-[140px] bg-surface-card rounded-xl border border-surface-border p-3 active:opacity-90"
     >
       <Text className="text-slate-400 text-xs" numberOfLines={1}>
-        {eventName}
+        {gameName}
       </Text>
       <Text className="text-slate-100 font-semibold mt-2" numberOfLines={2}>
-        Market #{item.id}
+        {item.name.trim().length > 0 ? item.name : `Market #${item.id}`}
       </Text>
-      <Text className="text-slate-500 text-xs mt-1">type {item.market_type}</Text>
+      <Text className="text-slate-500 text-xs mt-1">status {item.status}</Text>
     </Pressable>
   );
 }
@@ -82,7 +82,7 @@ export default function BetHomeScreen() {
       className="flex-1 bg-surface"
       style={{ paddingTop: Platform.OS === "web" ? webNavTop + 8 : insets.top + 8 }}
     >
-      <Text className="text-xl font-bold text-slate-100 px-4 mb-2">Markets</Text>
+      <Text className="text-xl font-bold text-slate-100 px-4 mb-2">Games</Text>
       <FlatList
         data={marketRows}
         keyExtractor={(m) => String(m.id)}
@@ -100,6 +100,7 @@ export default function BetHomeScreen() {
               slides={bannerSlides}
               onSlidePress={(s) => router.push(`/(app)/event/${s.id}`)}
             />
+            <Text className="text-xl font-bold text-slate-100 px-4 mb-2">Markets</Text>
             {err ? (
               <Text className="text-red-400 px-4 mb-2">
                 {eventsQ.error instanceof Error

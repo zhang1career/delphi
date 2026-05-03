@@ -78,27 +78,27 @@ function toEventSummary(row: Record<string, unknown>): SportEventSummary {
 
 function toMarket(row: Record<string, unknown>): SportMarket {
   const id = finiteInt(row.id);
-  const event_id = finiteInt(row.event_id);
-  const market_type = finiteInt(row.market_type);
+  const game_id = finiteInt(row.game_id);
   const status = finiteInt(row.status);
-  if (id === null || event_id === null || market_type === null || status === null) {
+  const name = typeof row.name === "string" ? row.name : "";
+  if (id === null || game_id === null || status === null) {
     throw new Error("Malformed market");
   }
-  const evRaw = row.event;
-  let event: SportEventSummary | null | undefined;
-  if (evRaw && typeof evRaw === "object" && !Array.isArray(evRaw)) {
+  const gameRaw = row.game;
+  let game: SportEventSummary | null | undefined;
+  if (gameRaw && typeof gameRaw === "object" && !Array.isArray(gameRaw)) {
     try {
-      event = toEventSummary(evRaw as Record<string, unknown>);
+      game = toEventSummary(gameRaw as Record<string, unknown>);
     } catch {
-      event = undefined;
+      game = undefined;
     }
   }
   return {
     id,
-    event_id,
-    market_type,
+    game_id,
+    name,
     status,
-    ...(event !== undefined ? { event } : {}),
+    ...(game !== undefined ? { game } : {}),
   };
 }
 
@@ -111,7 +111,15 @@ function toSelection(row: Record<string, unknown>): SportSelection {
     throw new Error("Malformed selection");
   }
   const mk = row.market;
-  const ev = row.event;
+  const gameRaw = row.game;
+  let game: SportEventSummary | null = null;
+  if (gameRaw && typeof gameRaw === "object" && !Array.isArray(gameRaw)) {
+    try {
+      game = toEventSummary(gameRaw as Record<string, unknown>);
+    } catch {
+      game = null;
+    }
+  }
   const out: SportSelection = {
     id,
     label,
@@ -121,14 +129,14 @@ function toSelection(row: Record<string, unknown>): SportSelection {
       mk && typeof mk === "object" && !Array.isArray(mk)
         ? {
             id: finiteInt((mk as Record<string, unknown>).id) ?? 0,
-            market_type: finiteInt((mk as Record<string, unknown>).market_type) ?? 0,
+            name:
+              typeof (mk as Record<string, unknown>).name === "string"
+                ? ((mk as Record<string, unknown>).name as string)
+                : "",
             status: finiteInt((mk as Record<string, unknown>).status) ?? 0,
           }
         : null,
-    event:
-      ev && typeof ev === "object" && !Array.isArray(ev)
-        ? toEventSummary(ev as Record<string, unknown>)
-        : null,
+    game,
   };
   return out;
 }
@@ -196,16 +204,16 @@ export type PagedMarkets = {
 export async function fetchBetMarketsPage(params?: {
   page?: number;
   per_page?: number;
-  event_id?: number;
+  game_id?: number;
 }): Promise<PagedMarkets> {
   const base = await betBase();
   const qs = new URLSearchParams({
     page: String(params?.page ?? 1),
     per_page: String(params?.per_page ?? 15),
   });
-  const eid = params?.event_id;
-  if (eid !== undefined && eid >= 1) {
-    qs.set("event_id", String(eid));
+  const gid = params?.game_id;
+  if (gid !== undefined && gid >= 1) {
+    qs.set("game_id", String(gid));
   }
   const res = await fetchWithHttpDebug(`${base}${BET_MARKETS_PATH}?${qs.toString()}`, {
     method: "GET",

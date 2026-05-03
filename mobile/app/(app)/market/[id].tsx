@@ -45,7 +45,13 @@ export default function MarketDetailScreen() {
   const lines = selectionsQ.data?.items ?? [];
 
   useEffect(() => {
-    navigation.setOptions({ title: market ? `Market #${market.id}` : "Market" });
+    const title =
+      market && typeof market.name === "string" && market.name.trim().length > 0
+        ? market.name.trim()
+        : market
+          ? `Market #${market.id}`
+          : "Market";
+    navigation.setOptions({ title });
   }, [market, navigation]);
 
   const balanceMinor = pointsQ.data?.balance_minor ?? 0;
@@ -125,10 +131,10 @@ export default function MarketDetailScreen() {
     );
   }
 
-  const eventLabel =
-    typeof market.event?.name === "string" && market.event.name.trim()
-      ? market.event.name
-      : `Event ${market.event_id}`;
+  const gameLabel =
+    typeof market.game?.name === "string" && market.game.name.trim()
+      ? market.game.name
+      : `Game ${market.game_id}`;
 
   const bottomPad = insets.bottom + 120;
 
@@ -136,9 +142,9 @@ export default function MarketDetailScreen() {
     <View className="flex-1 bg-surface">
       <ScrollView contentContainerStyle={{ paddingBottom: bottomPad }}>
         <View className="p-4">
-          <Text className="text-slate-400 text-sm">{eventLabel}</Text>
+          <Text className="text-slate-400 text-sm">{gameLabel}</Text>
           <Text className="text-slate-300 text-xs mt-1">
-            Market type · {market.market_type}
+            {market.name.trim().length > 0 ? market.name : `Market #${market.id}`}
           </Text>
         </View>
 

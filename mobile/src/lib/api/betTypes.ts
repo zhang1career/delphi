@@ -27,10 +27,12 @@ export type SportEventSummary = {
 
 export type SportMarket = {
   id: number;
-  event_id: number;
-  market_type: number;
+  /** CMS / catalog game id (`biz_market.game_id`). */
+  game_id: number;
+  /** Local display label on `biz_market`. */
+  name: string;
   status: number;
-  event?: SportEventSummary | null;
+  game?: SportEventSummary | null;
 };
 
 export type SportSelection = {
@@ -40,10 +42,10 @@ export type SportSelection = {
   status: number;
   market?: {
     id: number;
-    market_type: number;
+    name: string;
     status: number;
   } | null;
-  event?: SportEventSummary | null;
+  game?: SportEventSummary | null;
 };
 
 export type BetOrderLine = {
