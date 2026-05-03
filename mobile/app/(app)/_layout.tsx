@@ -21,6 +21,16 @@ export default function AppGroupLayout() {
         }}
       />
       <Stack.Screen
+        name="markets"
+        options={{
+          headerShown: true,
+          title: "Markets",
+          headerBackTitle: "Back",
+          headerStyle: { backgroundColor: "#0f172a" },
+          headerTintColor: "#f1f5f9",
+        }}
+      />
+      <Stack.Screen
         name="market/[id]"
         options={{
           headerShown: true,

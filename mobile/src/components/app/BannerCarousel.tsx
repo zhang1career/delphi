@@ -14,7 +14,8 @@ const { width } = Dimensions.get("window");
 const BANNER_H = 160;
 const PAGE = Math.min(width - 32, 400);
 
-export type BannerSlide = { id: string; title: string; imageUrl: string };
+/** `main_media` from the games API when present; resolved to `/api/cdn/…` URL on the markets screen. */
+export type BannerSlide = { id: string; title: string; imageUrl: string; mainMedia?: string };
 
 export function BannerCarousel({
   slides,

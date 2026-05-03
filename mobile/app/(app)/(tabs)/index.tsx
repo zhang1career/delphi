@@ -1,52 +1,21 @@
 import { useRouter } from "expo-router";
-import {
-  ActivityIndicator,
-  FlatList,
-  Platform,
-  Pressable,
-  RefreshControl,
-  Text,
-  View,
-} from "react-native";
+import { Platform, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useWebTopTabBarInset } from "@/lib/navigation/useWebTopTabBarInset";
 import type { BannerSlide } from "@/components/app/BannerCarousel";
 import { BannerCarousel } from "@/components/app/BannerCarousel";
-import { useBetEventsInfiniteQuery, useBetMarketsInfiniteQuery } from "@/features/bet/hooks";
-import type { SportMarket } from "@/lib/api/betTypes";
+import { MarketsListView } from "@/features/bet/MarketsListView";
+import { useBetEventsInfiniteQuery } from "@/features/bet/hooks";
 import { betGameAssetCdnUri } from "@/lib/betCdn";
 import { features } from "@/lib/config";
-
-function MarketRow({ item, onPress }: { item: SportMarket; onPress: () => void }) {
-  const gameName =
-    typeof item.game?.name === "string" && item.game.name.trim().length > 0
-      ? item.game.name
-      : `Game ${item.game_id}`;
-  return (
-    <Pressable
-      onPress={onPress}
-      className="flex-1 m-2 min-w-[140px] bg-surface-card rounded-xl border border-surface-border p-3 active:opacity-90"
-    >
-      <Text className="text-slate-400 text-xs" numberOfLines={1}>
-        {gameName}
-      </Text>
-      <Text className="text-slate-100 font-semibold mt-2" numberOfLines={2}>
-        {item.name.trim().length > 0 ? item.name : `Market #${item.id}`}
-      </Text>
-      <Text className="text-slate-500 text-xs mt-1">status {item.status}</Text>
-    </Pressable>
-  );
-}
 
 export default function BetHomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const webNavTop = useWebTopTabBarInset();
   const eventsQ = useBetEventsInfiniteQuery(12);
-  const marketsQ = useBetMarketsInfiniteQuery({});
 
   const eventRows = eventsQ.data?.pages.flatMap((p) => p.items) ?? [];
-  const marketRows = marketsQ.data?.pages.flatMap((p) => p.items) ?? [];
 
   const bannerSlides: BannerSlide[] = eventRows
     .map((ev) => {
@@ -57,7 +26,14 @@ export default function BetHomeScreen() {
       if (!imageUrl) {
         return null;
       }
-      return { id: String(ev.id), title: ev.name, imageUrl };
+      return {
+        id: String(ev.id),
+        title: ev.name,
+        imageUrl,
+        ...(typeof ev.main_media === "string" && ev.main_media.trim().length > 0
+          ? { mainMedia: ev.main_media.trim() }
+          : {}),
+      };
     })
     .filter((s): s is BannerSlide => s !== null)
     .slice(0, 8);
@@ -73,75 +49,40 @@ export default function BetHomeScreen() {
     );
   }
 
-  const busy = eventsQ.isPending || marketsQ.isPending;
-  const err = eventsQ.isError || marketsQ.isError;
-  const refetching = eventsQ.isRefetching || marketsQ.isRefetching;
-
   return (
     <View
       className="flex-1 bg-surface"
       style={{ paddingTop: Platform.OS === "web" ? webNavTop + 8 : insets.top + 8 }}
     >
       <Text className="text-xl font-bold text-slate-100 px-4 mb-2">Games</Text>
-      <FlatList
-        data={marketRows}
-        keyExtractor={(m) => String(m.id)}
-        numColumns={2}
-        columnWrapperStyle={{ paddingHorizontal: 8 }}
-        onEndReached={() => {
-          if (marketsQ.hasNextPage && !marketsQ.isFetchingNextPage) {
-            void marketsQ.fetchNextPage();
-          }
-        }}
-        onEndReachedThreshold={0.35}
-        ListHeaderComponent={
+      <MarketsListView
+        listHeader={
           <>
             <BannerCarousel
               slides={bannerSlides}
-              onSlidePress={(s) => router.push(`/(app)/event/${s.id}`)}
+              onSlidePress={(s) => {
+                const q = new URLSearchParams();
+                q.set("game_id", s.id);
+                q.set("title", s.title);
+                if (s.mainMedia) {
+                  q.set("main_media", s.mainMedia);
+                }
+                router.push(`/(app)/markets?${q.toString()}`);
+              }}
             />
-            <Text className="text-xl font-bold text-slate-100 px-4 mb-2">Markets</Text>
-            {err ? (
+            {eventsQ.isError ? (
               <Text className="text-red-400 px-4 mb-2">
-                {eventsQ.error instanceof Error
-                  ? eventsQ.error.message
-                  : marketsQ.error instanceof Error
-                    ? marketsQ.error.message
-                    : "Could not load catalog."}
+                {eventsQ.error instanceof Error ? eventsQ.error.message : "Could not load games."}
               </Text>
             ) : null}
+            <Text className="text-xl font-bold text-slate-100 px-4 mb-2">Markets</Text>
           </>
         }
-        ListFooterComponent={
-          marketsQ.isFetchingNextPage ? (
-            <View className="py-4 items-center">
-              <ActivityIndicator color="#a5b4fc" />
-            </View>
-          ) : null
-        }
-        refreshControl={
-          <RefreshControl
-            refreshing={refetching}
-            onRefresh={() => {
-              void eventsQ.refetch();
-              void marketsQ.refetch();
-            }}
-            tintColor="#a5b4fc"
-          />
-        }
-        ListEmptyComponent={
-          busy ? (
-            <View className="py-12 items-center">
-              <ActivityIndicator color="#a5b4fc" />
-            </View>
-          ) : (
-            <Text className="text-slate-500 px-4">No open markets.</Text>
-          )
-        }
-        renderItem={({ item }) => (
-          <MarketRow item={item} onPress={() => router.push(`/(app)/market/${item.id}`)} />
-        )}
-        contentContainerStyle={{ paddingBottom: 100 }}
+        marketsHeading={null}
+        onRefreshExtra={() => void eventsQ.refetch()}
+        onMarketPress={(item) => router.push(`/(app)/market/${item.id}`)}
+        contentPaddingTop={0}
+        contentPaddingBottom={100}
       />
     </View>
   );

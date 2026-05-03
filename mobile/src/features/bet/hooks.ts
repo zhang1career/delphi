@@ -40,8 +40,8 @@ export function useBetEventQuery(eventId: string) {
   });
 }
 
-export function useBetMarketsInfiniteQuery(opts: { eventId?: string; perPage?: number }) {
-  const numeric = opts.eventId != null ? Number.parseInt(opts.eventId, 10) : NaN;
+export function useBetMarketsInfiniteQuery(opts: { gameId?: string; perPage?: number } = {}) {
+  const numeric = opts.gameId != null && opts.gameId !== "" ? Number.parseInt(opts.gameId, 10) : NaN;
   const game_id = Number.isFinite(numeric) && numeric >= 1 ? numeric : undefined;
   const perPage = opts.perPage ?? DEFAULT_PER_PAGE;
   return useInfiniteQuery({
