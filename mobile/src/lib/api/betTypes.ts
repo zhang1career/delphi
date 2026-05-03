@@ -10,9 +10,9 @@ export type SportEvent = {
   /** 1 = open, 2 = closed, 3 = settled */
   status: number;
   winning_selection_ids: number[];
-  /** Banner key: OSS path `bet/{banner}` when relative; or absolute image URL. */
+  /** Banner object key under CDN distribution when relative (e.g. `banner/…`); or absolute image URL. */
   banner?: string;
-  /** Main image key: OSS path `bet/{main_media}` when relative; or absolute URL. */
+  /** Main image key under CDN distribution when relative; or absolute URL. */
   main_media?: string;
   /** Resolved banner/main image URL from `mallCdnBaseUrl` (set by list/detail fetch). */
   bannerCdnUrl?: string;

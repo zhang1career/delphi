@@ -1,18 +1,15 @@
 import { getServiceOriginsSync } from "@/lib/serviceOrigins";
 
-/** API `banner` / `main_media` keys are stored under OSS path `bet/{key}`. */
-function betObjectKeyForCdn(relativeKey: string): string {
-  const n = relativeKey.replace(/^\/+/, "");
-  if (n.startsWith("bet/") || n === "bet") {
-    return n;
-  }
-  return `bet/${n}`;
+/** Normalize API relative object key: strip leading slashes (same as mall product thumbnails). */
+function cdnObjectKeySegment(relativeKey: string): string {
+  return relativeKey.replace(/^\/+/, "");
 }
 
 /**
  * Full CDN URL for a game asset using the **configured** `mallCdnBaseUrl` (e.g. gateway
- * `/api/cdn/2020-05-31/d/{distributionId}`). Call this after `await getServiceOrigins()` so Web
- * gets the same base that served `GET /api/bet/games` (avoids relying only on sync cache).
+ * `/api/cdn/2020-05-31/d/{distributionId}`). Relative keys are appended as returned by the API
+ * (no extra `bet/` segment). Call this after `await getServiceOrigins()` so Web gets the same base
+ * that served `GET /api/bet/games` (avoids relying only on sync cache).
  */
 export function betGameAssetCdnUriWithBase(cdnBase: string, assetRef: string | undefined | null): string | null {
   const t = typeof assetRef === "string" ? assetRef.trim() : "";
@@ -26,7 +23,7 @@ export function betGameAssetCdnUriWithBase(cdnBase: string, assetRef: string | u
   if (!b) {
     return null;
   }
-  return `${b}/${betObjectKeyForCdn(t)}`;
+  return `${b}/${cdnObjectKeySegment(t)}`;
 }
 
 /**
