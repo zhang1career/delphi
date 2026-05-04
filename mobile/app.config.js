@@ -38,6 +38,8 @@ const APP_DISPLAY_NAME = envTrim("APP_DISPLAY_NAME");
 const APP_VERSION = envTrim("APP_VERSION");
 const APP_MODULE_NAME = envTrim("APP_MODULE_NAME");
 const BUNDLE_ID = envTrim("BUNDLE_ID");
+/** Web 挂在子路径时设置，如 `/delphi`；导出前需与 nginx `location` 一致。不设则按站点根 `/`（本地 dev 常见）。 */
+const WEB_BASE_PATH = envTrim("WEB_BASE_PATH");
 
 /** @type {import('@expo/config').ExpoConfig} */
 module.exports = {
@@ -74,6 +76,13 @@ module.exports = {
       bundler: "metro",
       favicon: "./assets/images/favicon.png",
     },
+    ...(WEB_BASE_PATH
+      ? {
+          experiments: {
+            baseUrl: WEB_BASE_PATH,
+          },
+        }
+      : {}),
     plugins: [
       "expo-router",
       "expo-secure-store",

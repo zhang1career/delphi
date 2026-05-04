@@ -62,7 +62,7 @@ export default function MarketsScreen() {
       gameId={gameId}
       backgroundImageUri={backgroundUri}
       contentPaddingBottom={insets.bottom + 24}
-      onMarketPress={(item) => router.push(`/(app)/market/${item.id}`)}
+      onMarketPress={(item) => router.push(`/(app)/markets/${item.id}`)}
     />
   );
 }

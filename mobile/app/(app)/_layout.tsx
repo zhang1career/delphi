@@ -21,7 +21,7 @@ export default function AppGroupLayout() {
         }}
       />
       <Stack.Screen
-        name="markets"
+        name="markets/index"
         options={{
           headerShown: true,
           title: "Markets",
@@ -31,7 +31,7 @@ export default function AppGroupLayout() {
         }}
       />
       <Stack.Screen
-        name="market/[id]"
+        name="markets/[id]"
         options={{
           headerShown: true,
           headerBackTitle: "Back",

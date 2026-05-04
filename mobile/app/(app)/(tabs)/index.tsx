@@ -80,7 +80,7 @@ export default function BetHomeScreen() {
         }
         marketsHeading={null}
         onRefreshExtra={() => void eventsQ.refetch()}
-        onMarketPress={(item) => router.push(`/(app)/market/${item.id}`)}
+        onMarketPress={(item) => router.push(`/(app)/markets/${item.id}`)}
         contentPaddingTop={0}
         contentPaddingBottom={100}
       />

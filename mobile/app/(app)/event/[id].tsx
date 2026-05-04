@@ -65,7 +65,7 @@ export default function EventDetailScreen() {
       listHeader={listHeader}
       contentPaddingBottom={insets.bottom + 24}
       onRefreshExtra={() => void eventQ.refetch()}
-      onMarketPress={(item) => router.push(`/(app)/market/${item.id}`)}
+      onMarketPress={(item) => router.push(`/(app)/markets/${item.id}`)}
     />
   );
 }

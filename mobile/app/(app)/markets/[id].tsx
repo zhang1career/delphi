@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   ScrollView,
   Text,
@@ -21,6 +22,7 @@ import {
 import { MallApiError } from "@/lib/api/mallEnvelope";
 import type { SportSelection } from "@/lib/api/betTypes";
 import { formatDecimalOddsFromMillis } from "@/lib/api/betTypes";
+import { isThreeWayLineup, MatchResultThreeWayRow } from "@/features/bet/MatchResultThreeWay";
 import { features } from "@/lib/config";
 import { useToast } from "@/lib/notifications/toast";
 
@@ -138,80 +140,96 @@ export default function MarketDetailScreen() {
 
   const bottomPad = insets.bottom + 120;
 
+  const contentShellClass =
+    Platform.OS === "web" ? "w-full max-w-2xl self-center px-2" : "w-full";
+  const footerBarClass = Platform.OS === "web" ? "w-full max-w-2xl self-center px-4" : "px-4";
+  const showThreeWay = isThreeWayLineup(lines);
+
   return (
     <View className="flex-1 bg-surface">
       <ScrollView contentContainerStyle={{ paddingBottom: bottomPad }}>
-        <View className="p-4">
-          <Text className="text-slate-400 text-sm">{gameLabel}</Text>
-          <Text className="text-slate-300 text-xs mt-1">
-            {market.name.trim().length > 0 ? market.name : `Market #${market.id}`}
-          </Text>
-        </View>
-
-        {lines.map((line) => (
-          <SelectionRow
-            key={line.id}
-            line={line}
-            chosen={selectedKid === line.id}
-            onSelect={() => setSelectedKid(line.id)}
-          />
-        ))}
-
-        {lines.length === 0 ? (
-          <Text className="text-slate-500 px-4">No open selections for this market.</Text>
-        ) : null}
-
-        <View className="px-4 mt-6 gap-2">
-          <Text className="text-slate-400 text-xs">Stake (points)</Text>
-          <TextInput
-            className="rounded-xl border border-surface-border bg-surface-card px-3 py-2.5 text-slate-100"
-            keyboardType="number-pad"
-            placeholder="100"
-            placeholderTextColor="#64748b"
-            value={stakeRaw}
-            onChangeText={setStakeRaw}
-          />
-          <Text className="text-slate-400 text-xs mt-2">Pay with mall points at checkout</Text>
-          <View className="flex-row items-center justify-between mt-2">
-            <Text className="text-slate-500 text-xs">Balance (minor)</Text>
-            {pointsQ.isFetching && !pointsQ.data ? (
-              <ActivityIndicator color="#94a3b8" />
-            ) : (
-              <Text className="text-slate-200 text-sm">{balanceMinor}</Text>
-            )}
+        <View className={contentShellClass}>
+          <View className="p-4">
+            <Text className="text-slate-400 text-sm">{gameLabel}</Text>
+            <Text className="text-slate-300 text-xs mt-1">
+              {market.name.trim().length > 0 ? market.name : `Market #${market.id}`}
+            </Text>
           </View>
-          <Text className="text-slate-500 text-xs mt-2">
-            Checkout points_minor (≤ balance; leave empty if none).
-          </Text>
-          <TextInput
-            className="rounded-xl border border-surface-border bg-surface-card px-3 py-2.5 text-slate-100"
-            keyboardType="number-pad"
-            placeholder=""
-            placeholderTextColor="#64748b"
-            value={pointsRaw}
-            onChangeText={setPointsRaw}
-          />
+          {showThreeWay ? (
+            <MatchResultThreeWayRow
+              lines={lines}
+              eventName={gameLabel}
+              selectedKid={selectedKid}
+              onSelect={setSelectedKid}
+            />
+          ) : (
+            lines.map((line) => (
+              <SelectionRow
+                key={line.id}
+                line={line}
+                chosen={selectedKid === line.id}
+                onSelect={() => setSelectedKid(line.id)}
+              />
+            ))
+          )}
+          {lines.length === 0 ? (
+            <Text className="text-slate-500 px-4">No open selections for this market.</Text>
+          ) : null}
+
+          <View className="px-4 mt-6 gap-2">
+            <Text className="text-slate-400 text-xs">Stake (points)</Text>
+            <TextInput
+              className="rounded-xl border border-surface-border bg-surface-card px-3 py-2.5 text-slate-100"
+              keyboardType="number-pad"
+              placeholder="100"
+              placeholderTextColor="#64748b"
+              value={stakeRaw}
+              onChangeText={setStakeRaw}
+            />
+            <Text className="text-slate-400 text-xs mt-2">Pay with mall points at checkout</Text>
+            <View className="flex-row items-center justify-between mt-2">
+              <Text className="text-slate-500 text-xs">Balance (minor)</Text>
+              {pointsQ.isFetching && !pointsQ.data ? (
+                <ActivityIndicator color="#94a3b8" />
+              ) : (
+                <Text className="text-slate-200 text-sm">{balanceMinor}</Text>
+              )}
+            </View>
+            <Text className="text-slate-500 text-xs mt-2">
+              Checkout points_minor (≤ balance; leave empty if none).
+            </Text>
+            <TextInput
+              className="rounded-xl border border-surface-border bg-surface-card px-3 py-2.5 text-slate-100"
+              keyboardType="number-pad"
+              placeholder=""
+              placeholderTextColor="#64748b"
+              value={pointsRaw}
+              onChangeText={setPointsRaw}
+            />
+          </View>
         </View>
       </ScrollView>
 
       <View
-        className="absolute left-0 right-0 border-t border-surface-border bg-surface px-4"
+        className="absolute left-0 right-0 border-t border-surface-border bg-surface"
         style={{ bottom: 0, paddingBottom: insets.bottom }}
       >
-        <Pressable
-          accessibilityLabel="Place bet draft and checkout"
-          disabled={lines.length === 0 || mutate.isPending}
-          onPress={() => mutate.mutate()}
-          className={`my-3 py-3.5 rounded-xl items-center justify-center ${
-            lines.length === 0 || mutate.isPending ? "bg-slate-600 opacity-70" : "bg-brand active:opacity-90"
-          }`}
-        >
-          {mutate.isPending ? (
-            <ActivityIndicator color="#f8fafc" />
-          ) : (
-            <Text className="text-white font-semibold text-base">Place order (checkout)</Text>
-          )}
-        </Pressable>
+        <View className={footerBarClass}>
+          <Pressable
+            accessibilityLabel="Place bet draft and checkout"
+            disabled={lines.length === 0 || mutate.isPending}
+            onPress={() => mutate.mutate()}
+            className={`my-3 py-3.5 rounded-xl items-center justify-center ${
+              lines.length === 0 || mutate.isPending ? "bg-slate-600 opacity-70" : "bg-brand active:opacity-90"
+            }`}
+          >
+            {mutate.isPending ? (
+              <ActivityIndicator color="#f8fafc" />
+            ) : (
+              <Text className="text-white font-semibold text-base">Place order (checkout)</Text>
+            )}
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -238,7 +256,6 @@ function SelectionRow({
     >
       <Text className="text-slate-100 font-medium">{line.label}</Text>
       <Text className="text-brand-muted text-lg mt-1">{odds}</Text>
-      <Text className="text-slate-600 text-[10px] mt-2">kid {line.id}</Text>
     </Pressable>
   );
 }
