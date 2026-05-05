@@ -73,7 +73,7 @@ export default function ForgotPasswordScreen() {
                 );
               }
             } else {
-              toast.show(e instanceof Error ? e.message : "Request failed");
+              toast.show(e instanceof Error ? e.message : "Request failed", { variant: "error" });
             }
           } finally {
             setSubmitting(false);

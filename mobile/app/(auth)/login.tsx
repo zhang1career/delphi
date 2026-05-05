@@ -46,7 +46,7 @@ export default function LoginScreen() {
             router.replace("/(app)/(tabs)");
           } catch (e) {
             const message = e instanceof Error ? e.message : "Sign in failed";
-            toast.show(message);
+            toast.show(message, { variant: "error" });
           } finally {
             setSubmitting(false);
           }

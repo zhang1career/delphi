@@ -63,14 +63,15 @@ export type BetOrderFull = {
   uid: number;
   status: number;
   total_price: number;
-  points_deduct_minor: number;
-  cash_payable_minor: number;
+  /** Stake held from points wallet after checkout (normally equals `total_price`). */
+  points_held: number;
   ct: number;
   ut: number;
   lines: BetOrderLine[];
   ext_inventory?: unknown;
   ext_id?: unknown;
-  checkout_phase?: string;
+  /** CheckoutPhase: 0 draft, 50 await payment (reserved), 60 completed. */
+  checkout_phase?: number;
 };
 
 export type BetOrderSummary = {

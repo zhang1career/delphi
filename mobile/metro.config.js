@@ -246,6 +246,14 @@ function serveDevGatewayProxy(req, res) {
 /** @type {import('expo/metro-config').MetroConfig} */
 const config = getDefaultConfig(__dirname);
 
+// Watchman can report an inconsistent crawl for the repo root (e.g. after recrawl /
+// `MustScanSubDirs`), which makes metro-file-map TreeFS treat a package dir as a file.
+// Node crawling avoids that class of failures; startup may be slightly slower.
+config.resolver = {
+  ...config.resolver,
+  useWatchman: false,
+};
+
 config.server = {
   ...config.server,
   enhanceMiddleware: (metroMiddleware) => {

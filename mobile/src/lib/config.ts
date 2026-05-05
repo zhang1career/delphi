@@ -4,7 +4,6 @@ type Extra = {
   apiConfigPublicUrl?: string;
   apiConfigPublicKey?: string;
   apiConfigAccessKey?: string;
-  apiGatewayPort?: string;
   servFdPort?: string;
   cdnDistributionId?: string;
   webDevGatewayProxyOrigin?: string;
@@ -26,7 +25,6 @@ function readTrimmed(value: string | undefined): string {
 export const apiConfigPublicUrl = readTrimmed(extra.apiConfigPublicUrl);
 export const apiConfigPublicKey = readTrimmed(extra.apiConfigPublicKey);
 export const apiConfigAccessKey = readTrimmed(extra.apiConfigAccessKey);
-export const apiGatewayPort = readTrimmed(extra.apiGatewayPort);
 export const servFdPort = readTrimmed(extra.servFdPort);
 export const cdnDistributionId = readTrimmed(extra.cdnDistributionId);
 export const webDevGatewayProxyOrigin = readTrimmed(extra.webDevGatewayProxyOrigin);

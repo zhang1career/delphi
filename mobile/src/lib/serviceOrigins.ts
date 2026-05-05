@@ -4,7 +4,6 @@ import {
   apiConfigPublicUrl,
   cdnDistributionId,
   servFdPort,
-  apiGatewayPort,
   webDevGatewayProxyOrigin,
 } from "@/lib/config";
 import { fetchWithHttpDebug } from "@/lib/httpDebug";
@@ -48,6 +47,15 @@ function requiredEnv(name: string, value: string): string {
 
 function toHttpOrigin(host: string, port: string): string {
   return `http://${host}:${port}`;
+}
+
+/** API gateway behind nginx on port 80; origin omits default HTTP port. */
+function gatewayHttpOrigin(host: string): string {
+  const h = host.trim().replace(/\/$/, "");
+  if (!h) {
+    throw new Error("Empty config host");
+  }
+  return `http://${h}`;
 }
 
 function isWebDevUsingMetroProxy(): boolean {
@@ -113,7 +121,7 @@ async function fetchConfigHost(): Promise<string> {
 
 async function createOrigins(): Promise<ServiceOrigins> {
   const host = await fetchConfigHost();
-  const gatewayBase = toHttpOrigin(host, requiredEnv("API_GATEWAY_PORT", apiGatewayPort));
+  const gatewayBase = gatewayHttpOrigin(host);
   const servFdBase = toHttpOrigin(host, requiredEnv("SERV_FD_PORT", servFdPort));
   const cdnDist = requiredEnv("CDN_DISTRIBUTION_ID", cdnDistributionId);
 

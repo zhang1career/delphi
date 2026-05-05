@@ -123,10 +123,10 @@ export default function CartScreen() {
     },
     onError: (e) => {
       if (e instanceof MallApiError) {
-        toast.show(e.message.trim() || `请求失败 (${e.errorCode})`);
+        toast.show(e.message.trim() || `请求失败 (${e.errorCode})`, { variant: "error" });
         return;
       }
-      toast.show(e instanceof Error ? e.message : "下单失败");
+      toast.show(e instanceof Error ? e.message : "下单失败", { variant: "error" });
     },
   });
 

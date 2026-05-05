@@ -16,7 +16,6 @@ import {
   checkoutBetOrder,
   createBetDraftOrder,
   useBetMarketQuery,
-  useBetPointsBalanceQuery,
   useBetSelectionsMarkets,
 } from "@/features/bet/hooks";
 import { MallApiError } from "@/lib/api/mallEnvelope";
@@ -37,11 +36,9 @@ export default function MarketDetailScreen() {
   const marketId = typeof id === "string" ? id : "";
   const marketQ = useBetMarketQuery(marketId);
   const selectionsQ = useBetSelectionsMarkets(marketId);
-  const pointsQ = useBetPointsBalanceQuery();
 
   const [selectedKid, setSelectedKid] = useState<number | null>(null);
   const [stakeRaw, setStakeRaw] = useState("100");
-  const [pointsRaw, setPointsRaw] = useState("");
 
   const market = marketQ.data;
   const lines = selectionsQ.data?.items ?? [];
@@ -56,8 +53,6 @@ export default function MarketDetailScreen() {
     navigation.setOptions({ title });
   }, [market, navigation]);
 
-  const balanceMinor = pointsQ.data?.balance_minor ?? 0;
-
   const mutate = useMutation({
     mutationFn: async () => {
       const kid = selectedKid ?? lines[0]?.id;
@@ -69,19 +64,7 @@ export default function MarketDetailScreen() {
         throw new Error("Enter stake (points, ≥ 1).");
       }
       const draft = await createBetDraftOrder([{ kid, stake_points: stakePoints }]);
-      const pts = pointsRaw.trim();
-      let pointsMinor: number | undefined;
-      if (pts !== "") {
-        const n = Number.parseInt(pts, 10);
-        if (!Number.isFinite(n) || n < 0) {
-          throw new Error("Invalid points deduction.");
-        }
-        pointsMinor = Math.min(n, balanceMinor);
-      }
-      await checkoutBetOrder({
-        order_id: draft.id,
-        ...(pointsMinor !== undefined && pointsMinor > 0 ? { points_minor: pointsMinor } : {}),
-      });
+      await checkoutBetOrder({ order_id: draft.id });
       return draft.id;
     },
     onSuccess(orderId: number) {
@@ -92,10 +75,10 @@ export default function MarketDetailScreen() {
     },
     onError(e: unknown) {
       if (e instanceof MallApiError) {
-        toast.show(e.message.trim() || `Request failed (${e.errorCode})`);
+        toast.show(e.message.trim() || `Request failed (${e.errorCode})`, { variant: "error" });
         return;
       }
-      toast.show(e instanceof Error ? e.message : "Could not complete order.");
+      toast.show(e instanceof Error ? e.message : "Could not complete order.", { variant: "error" });
     },
   });
 
@@ -186,26 +169,9 @@ export default function MarketDetailScreen() {
               value={stakeRaw}
               onChangeText={setStakeRaw}
             />
-            <Text className="text-slate-400 text-xs mt-2">Pay with mall points at checkout</Text>
-            <View className="flex-row items-center justify-between mt-2">
-              <Text className="text-slate-500 text-xs">Balance (minor)</Text>
-              {pointsQ.isFetching && !pointsQ.data ? (
-                <ActivityIndicator color="#94a3b8" />
-              ) : (
-                <Text className="text-slate-200 text-sm">{balanceMinor}</Text>
-              )}
-            </View>
             <Text className="text-slate-500 text-xs mt-2">
-              Checkout points_minor (≤ balance; leave empty if none).
+              Checkout debits this full stake from your points wallet (server-side).
             </Text>
-            <TextInput
-              className="rounded-xl border border-surface-border bg-surface-card px-3 py-2.5 text-slate-100"
-              keyboardType="number-pad"
-              placeholder=""
-              placeholderTextColor="#64748b"
-              value={pointsRaw}
-              onChangeText={setPointsRaw}
-            />
           </View>
         </View>
       </ScrollView>

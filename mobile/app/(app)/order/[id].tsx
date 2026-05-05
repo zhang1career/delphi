@@ -128,14 +128,11 @@ export default function OrderDetailScreen() {
         Status: {betOrderStatusLabel(order.status)}
       </Text>
       <Text className="text-brand-muted text-lg mt-2">{formatMinor(order.total_price)} total (minor)</Text>
-      <Text className="text-slate-500 text-xs mt-2">
-        Points deducted (minor): {order.points_deduct_minor} · Cash payable (minor):{" "}
-        {order.cash_payable_minor}
-      </Text>
+      <Text className="text-slate-500 text-xs mt-2">Points held (minor): {order.points_held}</Text>
       <Text className="text-slate-500 text-sm mt-4">Created: {formatTime(order.ct)}</Text>
       <Text className="text-slate-500 text-sm">Updated: {formatTime(order.ut)}</Text>
 
-      {order.checkout_phase ? (
+      {typeof order.checkout_phase === "number" ? (
         <Text className="text-slate-500 text-xs mt-4">Checkout phase: {order.checkout_phase}</Text>
       ) : null}
 

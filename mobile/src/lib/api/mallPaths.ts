@@ -1,4 +1,4 @@
-/** Mall-agg product routes via API gateway (`API_GATEWAY_PORT`). */
+/** Mall-agg product routes via API gateway (`http://{config host}` → nginx :80 → gateway). */
 export const MALL_PRODUCTS_PATH = "/api/mall-agg/products";
 
 /** POST body must match backend `ProductSearchRequest` (forwarded to SearchRec). */

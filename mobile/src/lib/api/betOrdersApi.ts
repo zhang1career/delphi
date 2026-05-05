@@ -131,14 +131,22 @@ function toBetOrderFull(data: Record<string, unknown>): BetOrderFull {
   const lines = linesRaw
     .filter((r): r is Record<string, unknown> => !!r && typeof r === "object" && !Array.isArray(r))
     .map((r) => toBetLine(r));
-  const points_deduct = mallFiniteInt(data.points_deduct_minor) ?? 0;
-  const cash_payable = mallFiniteInt(data.cash_payable_minor) ?? 0;
-  const checkout_phase =
-    typeof data.checkout_phase === "string" ? data.checkout_phase : undefined;
+  const pointsHeldRaw = mallFiniteInt(data.points_held);
+  const points_held =
+    pointsHeldRaw !== null && pointsHeldRaw >= 0 ? pointsHeldRaw : 0;
+  const phaseRaw = data.checkout_phase;
+  let checkout_phase: number | undefined;
+  if (typeof phaseRaw === "number" && Number.isFinite(phaseRaw)) {
+    checkout_phase = Math.trunc(phaseRaw);
+  } else if (typeof phaseRaw === "string") {
+    const n = Number.parseInt(phaseRaw.trim(), 10);
+    if (Number.isFinite(n)) {
+      checkout_phase = n;
+    }
+  }
   return {
     ...base,
-    points_deduct_minor: points_deduct >= 0 ? points_deduct : 0,
-    cash_payable_minor: cash_payable >= 0 ? cash_payable : 0,
+    points_held,
     lines,
     ...(data.ext_inventory !== undefined ? { ext_inventory: data.ext_inventory } : {}),
     ...(data.ext_id !== undefined ? { ext_id: data.ext_id } : {}),
@@ -224,18 +232,10 @@ export async function createBetDraftOrder(lines: { kid: number; stake_points: nu
   return parseBetOrderEnvelopeData(data);
 }
 
-export type BetCheckoutResponse = {
-  order: BetOrderFull;
-  prepay: Record<string, unknown>;
-};
-
-export async function checkoutBetOrder(input: { order_id: number; points_minor?: number }): Promise<BetCheckoutResponse> {
+/** `POST /api/bet/checkout`: body `{ order_id }`; response `data.order` only (full stake debited server-side). */
+export async function checkoutBetOrder(input: { order_id: number }): Promise<BetOrderFull> {
   const base = await betBase();
   const body: Record<string, unknown> = { order_id: input.order_id };
-  const pm = input.points_minor;
-  if (pm !== undefined && pm > 0) {
-    body.points_minor = pm;
-  }
   const res = await fetchWithHttpDebug(`${base}${BET_CHECKOUT_PATH}`, {
     method: "POST",
     headers: betAggUserAccessJsonHeaders(),
@@ -254,13 +254,7 @@ export async function checkoutBetOrder(input: { order_id: number; points_minor?:
   if (!orderRaw || typeof orderRaw !== "object" || Array.isArray(orderRaw)) {
     throw new Error("Malformed checkout: order");
   }
-  const order = parseBetOrderEnvelopeData(orderRaw as Record<string, unknown>);
-  const prepayRaw = data.prepay;
-  const prepay =
-    prepayRaw && typeof prepayRaw === "object" && !Array.isArray(prepayRaw)
-      ? (prepayRaw as Record<string, unknown>)
-      : {};
-  return { order, prepay };
+  return parseBetOrderEnvelopeData(orderRaw as Record<string, unknown>);
 }
 
 export type PointsBalanceData = {

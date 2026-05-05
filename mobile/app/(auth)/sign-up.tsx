@@ -85,7 +85,7 @@ export default function SignUpScreen() {
                 );
               }
             } else {
-              toast.show(e instanceof Error ? e.message : "Sign up failed");
+              toast.show(e instanceof Error ? e.message : "Sign up failed", { variant: "error" });
             }
           } finally {
             setSubmitting(false);
