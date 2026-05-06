@@ -663,7 +663,11 @@
         "required": ["kid", "stake_points"],
         "properties": {
           "kid": { "type": "integer", "description": "Selection id (`kid`)" },
-          "stake_points": { "type": "integer", "minimum": 1 }
+          "stake_points": { "type": "integer", "minimum": 1 },
+          "expected_odds_millis": {
+            "type": "integer",
+            "description": "Required for `POST /api/bet/place`: decimal odds × 1000 as shown for this line (e.g. 1850 = 1.85); server compares at lock"
+          }
         }
       },
       "BetPlaceRequest": {

@@ -3,6 +3,7 @@ import {
   apiConfigPublicKey,
   apiConfigPublicUrl,
   cdnDistributionId,
+  hostRefreshIntervalMs,
   webDevGatewayProxyOrigin,
 } from "@/lib/config";
 import { fetchWithHttpDebug } from "@/lib/httpDebug";
@@ -30,8 +31,6 @@ export type ServiceOrigins = {
 let cachedOrigins: ServiceOrigins | null = null;
 let initPromise: Promise<ServiceOrigins> | null = null;
 let refreshTimer: ReturnType<typeof setInterval> | null = null;
-
-const HOST_REFRESH_INTERVAL_MS = 30 * 60 * 1000;
 
 /** Mall CDN path prefix on API gateway; distribution id from `SF_CDN_DISTRIBUTION_ID`. */
 const MALL_CDN_PATH_PREFIX = "/api/cdn/2020-05-31/d";
@@ -148,7 +147,10 @@ function ensureRefreshTimer() {
   if (refreshTimer) {
     return;
   }
-  console.log("[serviceOrigins] start refresh timer", { intervalMs: HOST_REFRESH_INTERVAL_MS });
+  if (hostRefreshIntervalMs == null) {
+    return;
+  }
+  console.log("[serviceOrigins] start refresh timer", { intervalMs: hostRefreshIntervalMs });
   refreshTimer = setInterval(() => {
     console.log("[serviceOrigins] refresh host start");
     createOrigins()
@@ -159,7 +161,7 @@ function ensureRefreshTimer() {
       .catch((err) => {
         console.error("[serviceOrigins] refresh host failed", err);
       });
-  }, HOST_REFRESH_INTERVAL_MS);
+  }, hostRefreshIntervalMs);
 }
 
 export function getServiceOriginsSync(): ServiceOrigins | null {

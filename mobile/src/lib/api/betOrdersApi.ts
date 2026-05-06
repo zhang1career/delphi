@@ -4,6 +4,7 @@ import type {
   BetOrderLine,
   BetOrderListResult,
   BetOrderSummary,
+  CreateBetOrderLine,
 } from "./betTypes";
 import {
   BET_ORDERS_PATH,
@@ -262,10 +263,10 @@ async function fetchBetSnowflakeRequestId(base: string): Promise<string> {
 }
 
 /**
- * `POST /api/bet/place`: body `{ lines: [{ kid, stake_points }] }`; creates and settles in one step
+ * `POST /api/bet/place`: body `{ lines: [{ kid, stake_points, expected_odds_millis }] }`; creates and settles in one step
  * (same response shape as historical draft + checkout: `data` or `data.order` with full order).
  */
-export async function placeBetOrder(lines: { kid: number; stake_points: number }[]): Promise<BetOrderFull> {
+export async function placeBetOrder(lines: CreateBetOrderLine[]): Promise<BetOrderFull> {
   const base = await betBase();
   const xRequestId = await fetchBetSnowflakeRequestId(base);
   const res = await fetchWithHttpDebug(`${base}${BET_PLACE_PATH}`, {

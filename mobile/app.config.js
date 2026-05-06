@@ -110,6 +110,12 @@ module.exports = {
         const n = Number.parseInt(String(raw), 10);
         return Number.isFinite(n) && n > 0 ? n : undefined;
       })(),
+      hostRefreshIntervalMs: (() => {
+        const raw = process.env.HOST_REFRESH_INTERVAL_MS;
+        if (raw == null || String(raw).trim() === "") return undefined;
+        const n = Number.parseInt(String(raw), 10);
+        return Number.isFinite(n) && n > 0 ? n : undefined;
+      })(),
       features: {
         commerce: true,
         cart: false,

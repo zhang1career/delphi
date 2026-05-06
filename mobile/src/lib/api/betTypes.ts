@@ -98,6 +98,8 @@ export type BetOrderListResult = {
 export type CreateBetOrderLine = {
   kid: number;
   stake_points: number;
+  /** Client-shown odds (`current_odds_millis`) for this selection; server compares at lock. */
+  expected_odds_millis: number;
 };
 
 export function betOrderStatusLabel(status: number): string {

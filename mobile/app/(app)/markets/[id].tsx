@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   Text,
   TextInput,
@@ -20,6 +21,10 @@ import { isThreeWayLineup, MatchResultThreeWayRow } from "@/features/bet/MatchRe
 import { features } from "@/lib/config";
 import { useToast } from "@/lib/notifications/toast";
 
+/** After each successful catalog fetch, block place briefly so the user sees current odds. */
+const PLACE_COOLDOWN_SEC = 5;
+const PLACE_COOLDOWN_MS = PLACE_COOLDOWN_SEC * 1000;
+
 export default function MarketDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -33,9 +38,41 @@ export default function MarketDetailScreen() {
 
   const [selectedKid, setSelectedKid] = useState<number | null>(null);
   const [stakeRaw, setStakeRaw] = useState("100");
+  const [refreshing, setRefreshing] = useState(false);
+  const [cooldownTick, setCooldownTick] = useState(0);
 
   const market = marketQ.data;
   const lines = market?.selections ?? [];
+  const catalogDataUpdatedAt = marketQ.dataUpdatedAt ?? 0;
+
+  useEffect(() => {
+    setCooldownTick(0);
+  }, [catalogDataUpdatedAt]);
+
+  useEffect(() => {
+    if (catalogDataUpdatedAt === 0) {
+      return;
+    }
+    const deadline = catalogDataUpdatedAt + PLACE_COOLDOWN_MS;
+    if (Date.now() >= deadline) {
+      return;
+    }
+    const intervalId = setInterval(() => setCooldownTick((n) => n + 1), 1000);
+    return () => clearInterval(intervalId);
+  }, [catalogDataUpdatedAt]);
+
+  const placeCooldownRemainingSec = useMemo(() => {
+    if (catalogDataUpdatedAt === 0) {
+      return 0;
+    }
+    const leftMs = catalogDataUpdatedAt + PLACE_COOLDOWN_MS - Date.now();
+    return leftMs <= 0 ? 0 : Math.ceil(leftMs / 1000);
+  }, [catalogDataUpdatedAt, cooldownTick]);
+
+  const onCatalogRefresh = () => {
+    setRefreshing(true);
+    void marketQ.refetch().finally(() => setRefreshing(false));
+  };
 
   useEffect(() => {
     const title =
@@ -57,7 +94,15 @@ export default function MarketDetailScreen() {
       if (!Number.isFinite(stakePoints) || stakePoints < 1) {
         throw new Error("Enter stake (points, ≥ 1).");
       }
-      const placed = await placeBetOrder([{ kid, stake_points: stakePoints }]);
+      const selected = lines.find((x) => x.id === kid);
+      if (!selected) {
+        throw new Error("Choose an outcome.");
+      }
+      const expected_odds_millis = selected.current_odds_millis;
+      if (!Number.isFinite(expected_odds_millis) || expected_odds_millis <= 0) {
+        throw new Error("Odds unavailable; pull to refresh and try again.");
+      }
+      const placed = await placeBetOrder([{ kid, stake_points: stakePoints, expected_odds_millis }]);
       return placed.id;
     },
     onSuccess(orderId: number) {
@@ -121,9 +166,18 @@ export default function MarketDetailScreen() {
   const footerBarClass = Platform.OS === "web" ? "w-full max-w-2xl self-center px-4" : "px-4";
   const showThreeWay = isThreeWayLineup(lines);
 
+  const placeBlocked = lines.length === 0 || mutate.isPending || placeCooldownRemainingSec > 0;
+
   return (
     <View className="flex-1 bg-surface">
-      <ScrollView contentContainerStyle={{ paddingBottom: bottomPad }}>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: bottomPad }}
+        refreshControl={
+          Platform.OS === "web" ? undefined : (
+            <RefreshControl refreshing={refreshing} onRefresh={onCatalogRefresh} />
+          )
+        }
+      >
         <View className={contentShellClass}>
           <View className="p-4">
             <Text className="text-slate-400 text-sm">{gameLabel}</Text>
@@ -176,14 +230,18 @@ export default function MarketDetailScreen() {
         <View className={footerBarClass}>
           <Pressable
             accessibilityLabel="Place bet draft and checkout"
-            disabled={lines.length === 0 || mutate.isPending}
+            disabled={placeBlocked}
             onPress={() => mutate.mutate()}
             className={`my-3 py-3.5 rounded-xl items-center justify-center ${
-              lines.length === 0 || mutate.isPending ? "bg-slate-600 opacity-70" : "bg-brand active:opacity-90"
+              placeBlocked ? "bg-slate-600 opacity-70" : "bg-brand active:opacity-90"
             }`}
           >
             {mutate.isPending ? (
               <ActivityIndicator color="#f8fafc" />
+            ) : placeCooldownRemainingSec > 0 ? (
+              <Text className="text-white font-semibold text-base text-center px-2">
+                Review latest odds ({placeCooldownRemainingSec}s)
+              </Text>
             ) : (
               <Text className="text-white font-semibold text-base">Place order (checkout)</Text>
             )}

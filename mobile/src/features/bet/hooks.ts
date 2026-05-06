@@ -15,6 +15,9 @@ import { useAuthStore } from "@/stores/authStore";
 
 const DEFAULT_PER_PAGE = 15;
 
+/** Market detail: poll catalog so displayed odds stay current; aligns with place `expected_odds_millis` UX. */
+const BET_MARKET_POLL_MS = 5 * 60 * 1000;
+
 /** Infinite pages of `GET /api/bet/games` (Sports tab feed + banner imagery from each row's `banner` / `main_media`). */
 export function useBetEventsInfiniteQuery(
   perPage: number = DEFAULT_PER_PAGE,
@@ -76,6 +79,8 @@ export function useBetMarketQuery(marketId: string) {
     queryKey: ["bet-market", marketId],
     queryFn: () => fetchBetMarketDetail(numeric),
     enabled: ok,
+    refetchInterval: BET_MARKET_POLL_MS,
+    refetchIntervalInBackground: false,
   });
 }
 

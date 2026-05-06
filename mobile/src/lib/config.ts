@@ -8,6 +8,7 @@ type Extra = {
   snowflakeAccessKey?: string;
   webDevGatewayProxyOrigin?: string;
   tokenRefreshIntervalMs?: number;
+  hostRefreshIntervalMs?: number;
   features?: {
     commerce?: boolean;
     cart?: boolean;
@@ -34,6 +35,12 @@ export const webDevGatewayProxyOrigin = readTrimmed(extra.webDevGatewayProxyOrig
 /** From `.env` `TOKEN_REFRESH_INTERVAL_MS` via `app.config.js`. Null disables periodic refresh. */
 export const tokenRefreshIntervalMs: number | null = (() => {
   const n = extra.tokenRefreshIntervalMs;
+  return typeof n === "number" && Number.isFinite(n) && n > 0 ? n : null;
+})();
+
+/** From `.env` `HOST_REFRESH_INTERVAL_MS` via `app.config.js`. Null disables periodic `GET /api/config/pub` refresh. */
+export const hostRefreshIntervalMs: number | null = (() => {
+  const n = extra.hostRefreshIntervalMs;
   return typeof n === "number" && Number.isFinite(n) && n > 0 ? n : null;
 })();
 
