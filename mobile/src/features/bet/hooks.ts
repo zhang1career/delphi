@@ -4,19 +4,18 @@ import {
   fetchBetEventsPage,
   fetchBetMarketDetail,
   fetchBetMarketsPage,
-  fetchBetSelectionsPage,
 } from "@/lib/api/betCatalogApi";
 import {
-  checkoutBetOrder,
-  createBetDraftOrder,
   fetchBetOrder,
   fetchBetOrdersPage,
   fetchBetPointsBalance,
+  placeBetOrder,
 } from "@/lib/api/betOrdersApi";
 import { useAuthStore } from "@/stores/authStore";
 
 const DEFAULT_PER_PAGE = 15;
 
+/** Infinite pages of `GET /api/bet/games` (Sports tab feed + banner imagery from each row's `banner` / `main_media`). */
 export function useBetEventsInfiniteQuery(perPage: number = DEFAULT_PER_PAGE) {
   return useInfiniteQuery({
     queryKey: ["bet-events", "paged", perPage],
@@ -71,18 +70,6 @@ export function useBetMarketQuery(marketId: string) {
   });
 }
 
-/** Single market page loads all selections for the market when count is manageable. */
-export function useBetSelectionsMarkets(marketId: string) {
-  const numeric = Number.parseInt(marketId, 10);
-  const ok = Number.isFinite(numeric) && numeric >= 1;
-  return useQuery({
-    queryKey: ["bet-selections", "market", marketId],
-    queryFn: async () =>
-      fetchBetSelectionsPage({ market_id: numeric, page: 1, per_page: 50 }),
-    enabled: ok,
-  });
-}
-
 export function useBetOrdersInfiniteQuery(perPage: number = DEFAULT_PER_PAGE) {
   const token = useAuthStore((s) => s.accessToken);
   return useInfiniteQuery({
@@ -125,4 +112,4 @@ export function useBetPointsBalanceQuery() {
   });
 }
 
-export { createBetDraftOrder, checkoutBetOrder };
+export { placeBetOrder };

@@ -1,4 +1,5 @@
 const path = require("path");
+const fs = require("fs");
 const http = require("http");
 const https = require("https");
 const { getDefaultConfig } = require("expo/metro-config");
@@ -18,6 +19,26 @@ if (RUN_ENV === "dev" || RUN_ENV === "test" || RUN_ENV === "prod") {
     quiet: true,
   });
   process.env.RUN_ENV = RUN_ENV;
+}
+
+/** Required for OpenAPI: unset → docs URL not enabled (404). Agents send matching `X-Agent-OpenAPI-Secret` or `Authorization: Bearer`. */
+function webAgentOpenApiSecretConfigured() {
+  return String(process.env.WEB_AGENT_OPENAPI_SECRET ?? "").trim();
+}
+
+function agentOpenApiSecretFromRequest(req) {
+  const header = req.headers["x-agent-openapi-secret"];
+  if (typeof header === "string" && header.trim() !== "") {
+    return header.trim();
+  }
+  const auth = req.headers["authorization"];
+  if (typeof auth === "string") {
+    const m = /^Bearer\s+(\S+)/i.exec(auth.trim());
+    if (m) {
+      return m[1].trim();
+    }
+  }
+  return "";
 }
 
 /**
@@ -243,6 +264,49 @@ function serveDevGatewayProxy(req, res) {
   req.pipe(preq);
 }
 
+/**
+ * `GET /api/openapi.json` and `GET /api/agent/openapi.json` — **agent only**.
+ * Requires `WEB_AGENT_OPENAPI_SECRET` in `.env`; without it responds 404. Wrong/missing credential → 403.
+ *
+ * @param {import("http").IncomingMessage} req
+ * @param {import("http").ServerResponse} res
+ */
+function serveAgentOnlyOpenApiJson(req, res) {
+  if ((req.method || "GET").toUpperCase() !== "GET") {
+    res.statusCode = 405;
+    res.setHeader("Allow", "GET");
+    res.end();
+    return;
+  }
+
+  const expectedSecret = webAgentOpenApiSecretConfigured();
+  if (expectedSecret === "") {
+    res.statusCode = 404;
+    res.end();
+    return;
+  }
+  if (agentOpenApiSecretFromRequest(req) !== expectedSecret) {
+    res.statusCode = 403;
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.end(JSON.stringify({ error: "Forbidden" }));
+    return;
+  }
+
+  const filePath = path.join(__dirname, "agent-docs", "openapi.json");
+  fs.readFile(filePath, (err, buf) => {
+    if (err) {
+      res.statusCode = 404;
+      res.setHeader("Content-Type", "application/json; charset=utf-8");
+      res.end(JSON.stringify({ error: "OpenAPI snapshot missing (agent-docs/openapi.json)" }));
+      return;
+    }
+    res.statusCode = 200;
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    res.end(buf);
+  });
+}
+
 /** @type {import('expo/metro-config').MetroConfig} */
 const config = getDefaultConfig(__dirname);
 
@@ -259,6 +323,12 @@ config.server = {
   enhanceMiddleware: (metroMiddleware) => {
     return (req, res, next) => {
       const url = req.url ?? "";
+      const pathOnly = url.split("?", 1)[0];
+      const agentOpenApiPaths = new Set(["/api/openapi.json", "/api/agent/openapi.json"]);
+      if (agentOpenApiPaths.has(pathOnly)) {
+        serveAgentOnlyOpenApiJson(req, res);
+        return;
+      }
       if (url.startsWith(WEB_DEV_GATEWAY_PROXY_PATH)) {
         serveDevGatewayProxy(req, res);
         return;

@@ -14,18 +14,13 @@ export function betMarketPath(marketId: number): string {
   return `/api/bet/markets/${marketId}`;
 }
 
-export const BET_SELECTIONS_PATH = "/api/bet/selections";
-
-export function betSelectionPath(selectionId: number): string {
-  return `/api/bet/selections/${selectionId}`;
-}
-
 export const BET_ORDERS_PATH = "/api/bet/orders";
 
 export function betOrderPath(orderId: number): string {
   return `/api/bet/orders/${orderId}`;
 }
 
-export const BET_CHECKOUT_PATH = "/api/bet/checkout";
+/** Single-step create + settle (stake debit); replaces draft `POST /api/bet/orders` + `POST /api/bet/checkout`. */
+export const BET_PLACE_PATH = "/api/bet/place";
 
 export const BET_POINTS_PATH = "/api/bet/points";

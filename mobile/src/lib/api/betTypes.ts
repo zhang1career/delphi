@@ -4,8 +4,9 @@ export type { ListPagination };
 
 export type SportEvent = {
   id: number;
+  /** Display label; from API `title` or legacy `name`. */
   name: string;
-  /** Unix time in milliseconds */
+  /** Kickoff time in ms; `0` when the games API omits schedule fields. */
   starts_at: number;
   /** 1 = open, 2 = closed, 3 = settled */
   status: number;
@@ -20,7 +21,9 @@ export type SportEvent = {
 
 export type SportEventSummary = {
   id: number;
+  /** From API `title` or `name`. */
   name: string;
+  /** `0` if kickoff not provided on embedded `game` objects. */
   starts_at: number;
   status: number;
 };
@@ -32,6 +35,8 @@ export type SportMarket = {
   /** Local display label on `biz_market`. */
   name: string;
   status: number;
+  /** Present on `GET /api/bet/markets/{id}` and on list when `include_selections` is true. */
+  selections?: SportSelection[];
   game?: SportEventSummary | null;
 };
 

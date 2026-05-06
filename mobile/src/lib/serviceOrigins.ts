@@ -3,7 +3,6 @@ import {
   apiConfigPublicKey,
   apiConfigPublicUrl,
   cdnDistributionId,
-  servFdPort,
   webDevGatewayProxyOrigin,
 } from "@/lib/config";
 import { fetchWithHttpDebug } from "@/lib/httpDebug";
@@ -25,7 +24,6 @@ export type ServiceOrigins = {
   host: string;
   userAggBaseUrl: string;
   mallAggBaseUrl: string;
-  servFdBaseUrl: string;
   mallCdnBaseUrl: string;
 };
 
@@ -43,10 +41,6 @@ function requiredEnv(name: string, value: string): string {
     throw new Error(`Missing ${name} in env`);
   }
   return value;
-}
-
-function toHttpOrigin(host: string, port: string): string {
-  return `http://${host}:${port}`;
 }
 
 /** API gateway behind nginx on port 80; origin omits default HTTP port. */
@@ -122,7 +116,6 @@ async function fetchConfigHost(): Promise<string> {
 async function createOrigins(): Promise<ServiceOrigins> {
   const host = await fetchConfigHost();
   const gatewayBase = gatewayHttpOrigin(host);
-  const servFdBase = toHttpOrigin(host, requiredEnv("SERV_FD_PORT", servFdPort));
   const cdnDist = requiredEnv("CDN_DISTRIBUTION_ID", cdnDistributionId);
 
   const useGatewayProxy = shouldUseWebDevGatewayProxy(gatewayBase);
@@ -139,7 +132,6 @@ async function createOrigins(): Promise<ServiceOrigins> {
       host,
       userAggBaseUrl: proxyRoot,
       mallAggBaseUrl: proxyRoot,
-      servFdBaseUrl: servFdBase,
       mallCdnBaseUrl: `${proxyRoot}${MALL_CDN_PATH_PREFIX}/${cdnDist}`,
     };
   }
@@ -148,7 +140,6 @@ async function createOrigins(): Promise<ServiceOrigins> {
     host,
     userAggBaseUrl: gatewayBase,
     mallAggBaseUrl: gatewayBase,
-    servFdBaseUrl: servFdBase,
     mallCdnBaseUrl: `${gatewayBase}${MALL_CDN_PATH_PREFIX}/${cdnDist}`,
   };
 }

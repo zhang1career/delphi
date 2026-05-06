@@ -1,12 +1,6 @@
 import { betPublicJsonHeaders } from "./betAggHeaders";
 import type { SportEvent, SportEventSummary, SportMarket, SportSelection } from "./betTypes";
-import {
-  BET_GAMES_PATH,
-  BET_MARKETS_PATH,
-  BET_SELECTIONS_PATH,
-  betGamePath,
-  betMarketPath,
-} from "./betPaths";
+import { BET_GAMES_PATH, BET_MARKETS_PATH, betGamePath, betMarketPath } from "./betPaths";
 import { assertMallSuccess, readMallEnvelope, requireMallObjectData } from "./mallEnvelope";
 import { normalizeProductPagination } from "./mallPagination";
 import { betGameAssetCdnUriWithBase } from "@/lib/betCdn";
@@ -31,19 +25,38 @@ function finiteInt(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) {
     return Math.trunc(value);
   }
+  if (typeof value === "string" && value.trim() !== "") {
+    const n = Number.parseInt(value.trim(), 10);
+    if (Number.isFinite(n)) {
+      return n;
+    }
+  }
   return null;
+}
+
+function eventRowDisplayName(row: Record<string, unknown>): string {
+  const title = row.title;
+  if (typeof title === "string" && title.trim().length > 0) {
+    return title.trim();
+  }
+  const name = row.name;
+  if (typeof name === "string" && name.trim().length > 0) {
+    return name.trim();
+  }
+  return "";
 }
 
 function toEvent(row: Record<string, unknown>): SportEvent {
   const id = finiteInt(row.id);
-  const starts_at = finiteInt(row.starts_at);
+  const startsRaw = finiteInt(row.starts_at);
+  const starts_at = startsRaw !== null ? startsRaw : 0;
   const status = finiteInt(row.status);
-  const name = typeof row.name === "string" ? row.name : "";
+  const name = eventRowDisplayName(row);
   const ws = row.winning_selection_ids;
   const winning_selection_ids = Array.isArray(ws)
     ? ws.map((x) => finiteInt(x)).filter((x): x is number => x !== null)
     : [];
-  if (id === null || starts_at === null || status === null) {
+  if (id === null || status === null) {
     throw new Error("Malformed event");
   }
   const bannerRaw = row.banner;
@@ -67,10 +80,11 @@ function toEvent(row: Record<string, unknown>): SportEvent {
 
 function toEventSummary(row: Record<string, unknown>): SportEventSummary {
   const id = finiteInt(row.id);
-  const starts_at = finiteInt(row.starts_at);
+  const startsRaw = finiteInt(row.starts_at);
+  const starts_at = startsRaw !== null ? startsRaw : 0;
   const status = finiteInt(row.status);
-  const name = typeof row.name === "string" ? row.name : "";
-  if (id === null || starts_at === null || status === null) {
+  const name = eventRowDisplayName(row);
+  if (id === null || status === null) {
     throw new Error("Malformed event summary");
   }
   return { id, name, starts_at, status };
@@ -93,11 +107,19 @@ function toMarket(row: Record<string, unknown>): SportMarket {
       game = undefined;
     }
   }
+  const selRaw = row.selections;
+  let selections: SportSelection[] | undefined;
+  if (Array.isArray(selRaw)) {
+    selections = selRaw
+      .filter((r): r is Record<string, unknown> => !!r && typeof r === "object" && !Array.isArray(r))
+      .map((r) => toSelection(r));
+  }
   return {
     id,
     game_id,
     name,
     status,
+    ...(selections !== undefined ? { selections } : {}),
     ...(game !== undefined ? { game } : {}),
   };
 }
@@ -146,6 +168,7 @@ export type PagedEvents = {
   pagination: ReturnType<typeof normalizeProductPagination>;
 };
 
+/** `GET /api/bet/games` — paged catalog games. Items may include `banner` and `main_media` (resolved with mall CDN base into `bannerCdnUrl`); Sports tab carousel uses this list. */
 export async function fetchBetEventsPage(params?: { page?: number; per_page?: number }): Promise<PagedEvents> {
   const { mallAggBaseUrl, mallCdnBaseUrl } = await getServiceOrigins();
   const base = mallAggBaseUrl.replace(/\/$/, "");
@@ -176,6 +199,7 @@ export async function fetchBetEventsPage(params?: { page?: number; per_page?: nu
   return { items, pagination };
 }
 
+/** `GET /api/bet/games/{id}` — same optional `banner` / `main_media` semantics as list items. */
 export async function fetchBetEventDetail(eventId: number): Promise<SportEvent | null> {
   const { mallAggBaseUrl, mallCdnBaseUrl } = await getServiceOrigins();
   const base = mallAggBaseUrl.replace(/\/$/, "");
@@ -255,43 +279,3 @@ export async function fetchBetMarketDetail(marketId: number): Promise<SportMarke
   return toMarket(data);
 }
 
-export type PagedSelections = {
-  items: SportSelection[];
-  pagination: ReturnType<typeof normalizeProductPagination>;
-};
-
-export async function fetchBetSelectionsPage(params?: {
-  page?: number;
-  per_page?: number;
-  market_id?: number;
-}): Promise<PagedSelections> {
-  const base = await betBase();
-  const qs = new URLSearchParams({
-    page: String(params?.page ?? 1),
-    per_page: String(params?.per_page ?? 50),
-  });
-  const mid = params?.market_id;
-  if (mid !== undefined && mid >= 1) {
-    qs.set("market_id", String(mid));
-  }
-  const res = await fetchWithHttpDebug(`${base}${BET_SELECTIONS_PATH}?${qs.toString()}`, {
-    method: "GET",
-    headers: betPublicJsonHeaders(),
-  });
-  const env = await readMallEnvelope(res);
-  if (!res.ok) {
-    throw new Error(env.message?.trim() || `HTTP ${res.status}`);
-  }
-  assertMallSuccess(env);
-  const data = requireMallObjectData(env);
-  const itemsRaw = data.items as unknown;
-  const pagRaw = data.pagination as unknown;
-  if (!Array.isArray(itemsRaw) || !pagRaw || typeof pagRaw !== "object" || Array.isArray(pagRaw)) {
-    throw new Error("Malformed selections list");
-  }
-  const items = itemsRaw
-    .filter((row): row is Record<string, unknown> => !!row && typeof row === "object" && !Array.isArray(row))
-    .map((row) => toSelection(row));
-  const pagination = normalizeProductPagination(pagRaw as Record<string, unknown>);
-  return { items, pagination };
-}

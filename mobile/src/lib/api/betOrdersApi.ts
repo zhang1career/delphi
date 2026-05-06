@@ -5,7 +5,7 @@ import type {
   BetOrderListResult,
   BetOrderSummary,
 } from "./betTypes";
-import { BET_CHECKOUT_PATH, BET_ORDERS_PATH, BET_POINTS_PATH, betOrderPath } from "./betPaths";
+import { BET_ORDERS_PATH, BET_PLACE_PATH, BET_POINTS_PATH, betOrderPath } from "./betPaths";
 import {
   assertMallSuccess,
   assertMallSuccessHttp,
@@ -213,9 +213,21 @@ export async function fetchBetOrder(orderId: string): Promise<BetOrderFull | nul
   return parseBetOrderEnvelopeData(data);
 }
 
-export async function createBetDraftOrder(lines: { kid: number; stake_points: number }[]): Promise<BetOrderFull> {
+function parseBetPlaceResponseData(data: Record<string, unknown>): BetOrderFull {
+  const orderRaw = data.order;
+  if (orderRaw && typeof orderRaw === "object" && !Array.isArray(orderRaw)) {
+    return parseBetOrderEnvelopeData(orderRaw as Record<string, unknown>);
+  }
+  return parseBetOrderEnvelopeData(data);
+}
+
+/**
+ * `POST /api/bet/place`: body `{ lines: [{ kid, stake_points }] }`; creates and settles in one step
+ * (same response shape as historical draft + checkout: `data` or `data.order` with full order).
+ */
+export async function placeBetOrder(lines: { kid: number; stake_points: number }[]): Promise<BetOrderFull> {
   const base = await betBase();
-  const res = await fetchWithHttpDebug(`${base}${BET_ORDERS_PATH}`, {
+  const res = await fetchWithHttpDebug(`${base}${BET_PLACE_PATH}`, {
     method: "POST",
     headers: betAggUserAccessJsonHeaders(),
     body: JSON.stringify({ lines }),
@@ -229,32 +241,7 @@ export async function createBetDraftOrder(lines: { kid: number; stake_points: nu
     throw new MallApiError(env.message?.trim() || `HTTP ${res.status}`, env.errorCode, res.status);
   }
   const data = requireMallObjectData(env);
-  return parseBetOrderEnvelopeData(data);
-}
-
-/** `POST /api/bet/checkout`: body `{ order_id }`; response `data.order` only (full stake debited server-side). */
-export async function checkoutBetOrder(input: { order_id: number }): Promise<BetOrderFull> {
-  const base = await betBase();
-  const body: Record<string, unknown> = { order_id: input.order_id };
-  const res = await fetchWithHttpDebug(`${base}${BET_CHECKOUT_PATH}`, {
-    method: "POST",
-    headers: betAggUserAccessJsonHeaders(),
-    body: JSON.stringify(body),
-  });
-  const env = await readMallEnvelope(res);
-  if (res.status === 401) {
-    throw new Error(env.message?.trim() || "Unauthorized");
-  }
-  assertMallSuccessHttp(env, res.status);
-  if (!res.ok) {
-    throw new MallApiError(env.message?.trim() || `HTTP ${res.status}`, env.errorCode, res.status);
-  }
-  const data = requireMallObjectData(env);
-  const orderRaw = data.order;
-  if (!orderRaw || typeof orderRaw !== "object" || Array.isArray(orderRaw)) {
-    throw new Error("Malformed checkout: order");
-  }
-  return parseBetOrderEnvelopeData(orderRaw as Record<string, unknown>);
+  return parseBetPlaceResponseData(data);
 }
 
 export type PointsBalanceData = {

@@ -12,12 +12,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import {
-  checkoutBetOrder,
-  createBetDraftOrder,
-  useBetMarketQuery,
-  useBetSelectionsMarkets,
-} from "@/features/bet/hooks";
+import { placeBetOrder, useBetMarketQuery } from "@/features/bet/hooks";
 import { MallApiError } from "@/lib/api/mallEnvelope";
 import type { SportSelection } from "@/lib/api/betTypes";
 import { formatDecimalOddsFromMillis } from "@/lib/api/betTypes";
@@ -35,13 +30,12 @@ export default function MarketDetailScreen() {
 
   const marketId = typeof id === "string" ? id : "";
   const marketQ = useBetMarketQuery(marketId);
-  const selectionsQ = useBetSelectionsMarkets(marketId);
 
   const [selectedKid, setSelectedKid] = useState<number | null>(null);
   const [stakeRaw, setStakeRaw] = useState("100");
 
   const market = marketQ.data;
-  const lines = selectionsQ.data?.items ?? [];
+  const lines = market?.selections ?? [];
 
   useEffect(() => {
     const title =
@@ -63,9 +57,8 @@ export default function MarketDetailScreen() {
       if (!Number.isFinite(stakePoints) || stakePoints < 1) {
         throw new Error("Enter stake (points, ≥ 1).");
       }
-      const draft = await createBetDraftOrder([{ kid, stake_points: stakePoints }]);
-      await checkoutBetOrder({ order_id: draft.id });
-      return draft.id;
+      const placed = await placeBetOrder([{ kid, stake_points: stakePoints }]);
+      return placed.id;
     },
     onSuccess(orderId: number) {
       void queryClient.invalidateQueries({ queryKey: ["bet-orders"] });
@@ -98,7 +91,7 @@ export default function MarketDetailScreen() {
     );
   }
 
-  if (marketQ.isPending || selectionsQ.isPending) {
+  if (marketQ.isPending) {
     return (
       <View className="flex-1 bg-surface justify-center items-center">
         <ActivityIndicator color="#a5b4fc" />

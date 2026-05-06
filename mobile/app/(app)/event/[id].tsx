@@ -50,7 +50,9 @@ export default function EventDetailScreen() {
     ) : ev ? (
       <View className="mx-4 mb-4 px-4 py-3 rounded-xl bg-surface-card border border-surface-border">
         <Text className="text-slate-400 text-xs">Starts</Text>
-        <Text className="text-slate-100 mt-1">{fmtMs(ev.starts_at)}</Text>
+        <Text className="text-slate-100 mt-1">
+          {ev.starts_at > 0 ? fmtMs(ev.starts_at) : "—"}
+        </Text>
         <Text className="text-slate-400 text-xs mt-3">Status</Text>
         <Text className="text-slate-200 mt-1">{ev.status}</Text>
       </View>
