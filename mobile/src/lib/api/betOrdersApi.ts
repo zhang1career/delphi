@@ -5,11 +5,18 @@ import type {
   BetOrderListResult,
   BetOrderSummary,
 } from "./betTypes";
-import { BET_ORDERS_PATH, BET_PLACE_PATH, BET_POINTS_PATH, betOrderPath } from "./betPaths";
+import {
+  BET_ORDERS_PATH,
+  BET_PLACE_PATH,
+  BET_POINTS_PATH,
+  SNOWFLAKE_ID_PATH,
+  betOrderPath,
+} from "./betPaths";
 import {
   assertMallSuccess,
   assertMallSuccessHttp,
   MallApiError,
+  type MallApiEnvelope,
   readMallEnvelope,
   requireMallObjectData,
 } from "./mallEnvelope";
@@ -221,15 +228,53 @@ function parseBetPlaceResponseData(data: Record<string, unknown>): BetOrderFull 
   return parseBetOrderEnvelopeData(data);
 }
 
+function snowflakeRequestIdFromEnvelope(env: MallApiEnvelope, fallbackMessage: string): string {
+  const raw = env.data;
+  if (typeof raw === "string") {
+    const t = raw.trim();
+    if (t.length > 0) {
+      return t;
+    }
+  }
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    const id = (raw as Record<string, unknown>).id;
+    if (typeof id === "string" && id.trim().length > 0) {
+      return id.trim();
+    }
+    if (typeof id === "number" && Number.isFinite(id)) {
+      return String(Math.trunc(id));
+    }
+  }
+  throw new Error(env.message?.trim() || fallbackMessage);
+}
+
+async function fetchBetSnowflakeRequestId(base: string): Promise<string> {
+  const res = await fetchWithHttpDebug(`${base}${SNOWFLAKE_ID_PATH}`, {
+    method: "POST",
+    headers: betAggUserAccessJsonHeaders(),
+    body: JSON.stringify({}),
+  });
+  const env = await readMallEnvelope(res);
+  if (res.status === 401) {
+    throw new Error(env.message?.trim() || "Unauthorized");
+  }
+  assertMallSuccessHttp(env, res.status);
+  if (!res.ok) {
+    throw new MallApiError(env.message?.trim() || `HTTP ${res.status}`, env.errorCode, res.status);
+  }
+  return snowflakeRequestIdFromEnvelope(env, "Malformed snowflake id response");
+}
+
 /**
  * `POST /api/bet/place`: body `{ lines: [{ kid, stake_points }] }`; creates and settles in one step
  * (same response shape as historical draft + checkout: `data` or `data.order` with full order).
  */
 export async function placeBetOrder(lines: { kid: number; stake_points: number }[]): Promise<BetOrderFull> {
   const base = await betBase();
+  const xRequestId = await fetchBetSnowflakeRequestId(base);
   const res = await fetchWithHttpDebug(`${base}${BET_PLACE_PATH}`, {
     method: "POST",
-    headers: betAggUserAccessJsonHeaders(),
+    headers: betAggUserAccessJsonHeaders({ "X-Request-Id": xRequestId }),
     body: JSON.stringify({ lines }),
   });
   const env = await readMallEnvelope(res);

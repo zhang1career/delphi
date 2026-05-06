@@ -168,8 +168,15 @@ export type PagedEvents = {
   pagination: ReturnType<typeof normalizeProductPagination>;
 };
 
+/** `group_code` query value for `GET /api/bet/games` on the Games (Sports) home list. */
+export const BET_GAMES_GROUP_CODE_FIFA_2026 = "fifa-2026-group";
+
 /** `GET /api/bet/games` — paged catalog games. Items may include `banner` and `main_media` (resolved with mall CDN base into `bannerCdnUrl`); Sports tab carousel uses this list. */
-export async function fetchBetEventsPage(params?: { page?: number; per_page?: number }): Promise<PagedEvents> {
+export async function fetchBetEventsPage(params?: {
+  page?: number;
+  per_page?: number;
+  group_code?: string;
+}): Promise<PagedEvents> {
   const { mallAggBaseUrl, mallCdnBaseUrl } = await getServiceOrigins();
   const base = mallAggBaseUrl.replace(/\/$/, "");
   const cdnBase = mallCdnBaseUrl.replace(/\/$/, "");
@@ -177,6 +184,10 @@ export async function fetchBetEventsPage(params?: { page?: number; per_page?: nu
     page: String(params?.page ?? 1),
     per_page: String(params?.per_page ?? 15),
   });
+  const group_code = params?.group_code?.trim();
+  if (group_code) {
+    qs.set("group_code", group_code);
+  }
   const res = await fetchWithHttpDebug(`${base}${BET_GAMES_PATH}?${qs.toString()}`, {
     method: "GET",
     headers: betPublicJsonHeaders(),

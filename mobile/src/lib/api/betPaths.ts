@@ -20,6 +20,9 @@ export function betOrderPath(orderId: number): string {
   return `/api/bet/orders/${orderId}`;
 }
 
+/** Issued before `POST /api/bet/place` as `X-Request-Id`. */
+export const SNOWFLAKE_ID_PATH = "/api/snowflake/id";
+
 /** Single-step create + settle (stake debit); replaces draft `POST /api/bet/orders` + `POST /api/bet/checkout`. */
 export const BET_PLACE_PATH = "/api/bet/place";
 

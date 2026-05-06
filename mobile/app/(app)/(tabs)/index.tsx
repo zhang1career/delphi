@@ -6,6 +6,7 @@ import type { BannerSlide } from "@/components/app/BannerCarousel";
 import { BannerCarousel } from "@/components/app/BannerCarousel";
 import { MarketsListView } from "@/features/bet/MarketsListView";
 import { useBetEventsInfiniteQuery } from "@/features/bet/hooks";
+import { BET_GAMES_GROUP_CODE_FIFA_2026 } from "@/lib/api/betCatalogApi";
 import { betGameAssetCdnUri } from "@/lib/betCdn";
 import { features } from "@/lib/config";
 
@@ -13,7 +14,7 @@ export default function BetHomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const webNavTop = useWebTopTabBarInset();
-  const eventsQ = useBetEventsInfiniteQuery(12);
+  const eventsQ = useBetEventsInfiniteQuery(12, { group_code: BET_GAMES_GROUP_CODE_FIFA_2026 });
 
   const eventRows = eventsQ.data?.pages.flatMap((p) => p.items) ?? [];
 

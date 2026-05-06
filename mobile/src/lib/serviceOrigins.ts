@@ -33,7 +33,7 @@ let refreshTimer: ReturnType<typeof setInterval> | null = null;
 
 const HOST_REFRESH_INTERVAL_MS = 30 * 60 * 1000;
 
-/** Mall CDN path prefix on API gateway; distribution id from `CDN_DISTRIBUTION_ID`. */
+/** Mall CDN path prefix on API gateway; distribution id from `SF_CDN_DISTRIBUTION_ID`. */
 const MALL_CDN_PATH_PREFIX = "/api/cdn/2020-05-31/d";
 
 function requiredEnv(name: string, value: string): string {
@@ -116,7 +116,7 @@ async function fetchConfigHost(): Promise<string> {
 async function createOrigins(): Promise<ServiceOrigins> {
   const host = await fetchConfigHost();
   const gatewayBase = gatewayHttpOrigin(host);
-  const cdnDist = requiredEnv("CDN_DISTRIBUTION_ID", cdnDistributionId);
+  const cdnDist = requiredEnv("SF_CDN_DISTRIBUTION_ID", cdnDistributionId);
 
   const useGatewayProxy = shouldUseWebDevGatewayProxy(gatewayBase);
   if (isWebDevUsingMetroProxy() && webDevGatewayProxyOrigin.trim() && !useGatewayProxy) {

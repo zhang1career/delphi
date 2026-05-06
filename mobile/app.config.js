@@ -94,7 +94,7 @@ module.exports = {
       apiConfigPublicUrl: envTrim("API_CONFIG_PUBLIC_URL"),
       apiConfigPublicKey: envTrim("API_CONFIG_PUBLIC_KEY"),
       apiConfigAccessKey: envTrim("API_CONFIG_ACCESS_KEY"),
-      cdnDistributionId: envTrim("CDN_DISTRIBUTION_ID"),
+      cdnDistributionId: envTrim("SF_CDN_DISTRIBUTION_ID"),
       /** Web dev: must match resolved gateway base URL; Metro forwards this origin server-side (avoids browser CORS). */
       webDevGatewayProxyOrigin: envTrim("WEB_DEV_GATEWAY_PROXY_ORIGIN"),
       tokenRefreshIntervalMs: (() => {

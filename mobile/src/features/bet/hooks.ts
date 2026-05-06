@@ -16,10 +16,19 @@ import { useAuthStore } from "@/stores/authStore";
 const DEFAULT_PER_PAGE = 15;
 
 /** Infinite pages of `GET /api/bet/games` (Sports tab feed + banner imagery from each row's `banner` / `main_media`). */
-export function useBetEventsInfiniteQuery(perPage: number = DEFAULT_PER_PAGE) {
+export function useBetEventsInfiniteQuery(
+  perPage: number = DEFAULT_PER_PAGE,
+  options?: { group_code?: string },
+) {
+  const group_code = options?.group_code?.trim();
   return useInfiniteQuery({
-    queryKey: ["bet-events", "paged", perPage],
-    queryFn: ({ pageParam }) => fetchBetEventsPage({ page: pageParam, per_page: perPage }),
+    queryKey: ["bet-events", "paged", perPage, group_code ?? "_none"],
+    queryFn: ({ pageParam }) =>
+      fetchBetEventsPage({
+        page: pageParam,
+        per_page: perPage,
+        ...(group_code ? { group_code } : {}),
+      }),
     initialPageParam: 1,
     getNextPageParam: (last) => {
       const { current_page, last_page } = last.pagination;
