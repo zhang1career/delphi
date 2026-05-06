@@ -12,17 +12,24 @@ import { useBetMarketsInfiniteQuery } from "@/features/bet/hooks";
 import type { SportMarket } from "@/lib/api/betTypes";
 
 function MarketRow({ item, onPress }: { item: SportMarket; onPress: () => void }) {
+  const gameTitle = item.game?.name?.trim() ?? "";
+  const marketName = item.name.trim().length > 0 ? item.name.trim() : "—";
+  const statusLabel = item.market_status_label?.trim() ?? "—";
+  const titleDisplay = gameTitle.length > 0 ? gameTitle : "—";
+
   return (
     <Pressable
       onPress={onPress}
       className="mx-4 mb-3 bg-surface-card rounded-xl border border-surface-border p-4 active:opacity-90"
     >
-      <Text className="text-slate-100 font-semibold">
-        {item.name.trim().length > 0 ? item.name : `Market #${item.id}`}
-      </Text>
-      <Text className="text-slate-500 text-xs mt-1">
-        #{item.id} · status {item.status}
-      </Text>
+      <View className="flex-row items-center">
+        <Text className="flex-1 text-sm min-w-0 mr-2" numberOfLines={3}>
+          <Text className="text-slate-300">{titleDisplay}</Text>
+          <Text className="text-slate-300">{"  "}</Text>
+          <Text className="text-slate-100 font-semibold">{marketName}</Text>
+        </Text>
+        <Text className="text-slate-500 text-xs shrink-0">{statusLabel}</Text>
+      </View>
     </Pressable>
   );
 }

@@ -124,6 +124,42 @@ function toMarket(row: Record<string, unknown>): SportMarket {
   };
 }
 
+/** `data._dict.market_status`: `{ k: label, v: status code }[]` → numeric code → label. */
+function marketStatusLabelsFromPageData(data: Record<string, unknown>): Map<number, string> | null {
+  const dictRoot = data._dict;
+  if (!dictRoot || typeof dictRoot !== "object" || Array.isArray(dictRoot)) {
+    return null;
+  }
+  const rows = (dictRoot as Record<string, unknown>).market_status;
+  if (!Array.isArray(rows)) {
+    return null;
+  }
+  const map = new Map<number, string>();
+  for (const row of rows) {
+    if (!row || typeof row !== "object" || Array.isArray(row)) {
+      continue;
+    }
+    const o = row as Record<string, unknown>;
+    const labelRaw = o.k;
+    const codeNum = finiteInt(o.v);
+    if (typeof labelRaw !== "string" || labelRaw.trim().length === 0 || codeNum === null) {
+      continue;
+    }
+    map.set(codeNum, labelRaw.trim());
+  }
+  return map.size > 0 ? map : null;
+}
+
+function attachMarketStatusLabels(items: SportMarket[], map: Map<number, string> | null): SportMarket[] {
+  if (!map) {
+    return items;
+  }
+  return items.map((m) => {
+    const label = map.get(m.status);
+    return label !== undefined ? { ...m, market_status_label: label } : m;
+  });
+}
+
 function toSelection(row: Record<string, unknown>): SportSelection {
   const id = finiteInt(row.id);
   const label = typeof row.label === "string" ? row.label : "";
@@ -265,9 +301,12 @@ export async function fetchBetMarketsPage(params?: {
   if (!Array.isArray(itemsRaw) || !pagRaw || typeof pagRaw !== "object" || Array.isArray(pagRaw)) {
     throw new Error("Malformed markets list");
   }
-  const items = itemsRaw
-    .filter((row): row is Record<string, unknown> => !!row && typeof row === "object" && !Array.isArray(row))
-    .map((row) => toMarket(row));
+  const items = attachMarketStatusLabels(
+    itemsRaw
+      .filter((row): row is Record<string, unknown> => !!row && typeof row === "object" && !Array.isArray(row))
+      .map((row) => toMarket(row)),
+    marketStatusLabelsFromPageData(data),
+  );
   const pagination = normalizeProductPagination(pagRaw as Record<string, unknown>);
   return { items, pagination };
 }

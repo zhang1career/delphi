@@ -5,6 +5,7 @@ type Extra = {
   apiConfigPublicKey?: string;
   apiConfigAccessKey?: string;
   cdnDistributionId?: string;
+  snowflakeAccessKey?: string;
   webDevGatewayProxyOrigin?: string;
   tokenRefreshIntervalMs?: number;
   features?: {
@@ -25,6 +26,9 @@ export const apiConfigPublicUrl = readTrimmed(extra.apiConfigPublicUrl);
 export const apiConfigPublicKey = readTrimmed(extra.apiConfigPublicKey);
 export const apiConfigAccessKey = readTrimmed(extra.apiConfigAccessKey);
 export const cdnDistributionId = readTrimmed(extra.cdnDistributionId);
+export const snowflakeAccessKey = readTrimmed(
+  extra.snowflakeAccessKey ?? process.env.EXPO_PUBLIC_SF_SNOWFLAKE_ACCESS_KEY,
+);
 export const webDevGatewayProxyOrigin = readTrimmed(extra.webDevGatewayProxyOrigin);
 
 /** From `.env` `TOKEN_REFRESH_INTERVAL_MS` via `app.config.js`. Null disables periodic refresh. */

@@ -22,6 +22,7 @@ import {
 } from "./mallEnvelope";
 import { normalizeOrderPagination } from "./mallPagination";
 import { fetchWithHttpDebug } from "@/lib/httpDebug";
+import { snowflakeAccessKey } from "@/lib/config";
 import { getServiceOrigins } from "@/lib/serviceOrigins";
 
 async function betBase(): Promise<string> {
@@ -230,29 +231,24 @@ function parseBetPlaceResponseData(data: Record<string, unknown>): BetOrderFull 
 
 function snowflakeRequestIdFromEnvelope(env: MallApiEnvelope, fallbackMessage: string): string {
   const raw = env.data;
-  if (typeof raw === "string") {
-    const t = raw.trim();
-    if (t.length > 0) {
-      return t;
-    }
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new Error(env.message?.trim() || fallbackMessage);
   }
-  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
-    const id = (raw as Record<string, unknown>).id;
-    if (typeof id === "string" && id.trim().length > 0) {
-      return id.trim();
-    }
-    if (typeof id === "number" && Number.isFinite(id)) {
-      return String(Math.trunc(id));
-    }
+  const id = (raw as Record<string, unknown>).id;
+  if (typeof id === "string" && id.trim().length > 0) {
+    return id.trim();
   }
   throw new Error(env.message?.trim() || fallbackMessage);
 }
 
 async function fetchBetSnowflakeRequestId(base: string): Promise<string> {
+  if (!snowflakeAccessKey) {
+    throw new Error("Missing SF_SNOWFLAKE_ACCESS_KEY");
+  }
   const res = await fetchWithHttpDebug(`${base}${SNOWFLAKE_ID_PATH}`, {
     method: "POST",
     headers: betAggUserAccessJsonHeaders(),
-    body: JSON.stringify({}),
+    body: JSON.stringify({ access_key: snowflakeAccessKey }),
   });
   const env = await readMallEnvelope(res);
   if (res.status === 401) {

@@ -35,6 +35,8 @@ export type SportMarket = {
   /** Local display label on `biz_market`. */
   name: string;
   status: number;
+  /** From `data._dict.market_status` on `GET /api/bet/markets` when present. */
+  market_status_label?: string;
   /** Present on `GET /api/bet/markets/{id}` and on list when `include_selections` is true. */
   selections?: SportSelection[];
   game?: SportEventSummary | null;
