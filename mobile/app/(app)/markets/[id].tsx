@@ -15,7 +15,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { placeBetOrder, useBetMarketQuery } from "@/features/bet/hooks";
 import { MallApiError } from "@/lib/api/mallEnvelope";
-import type { SportSelection } from "@/lib/api/betTypes";
+import type { CreateBetOrderLine, SportSelection } from "@/lib/api/betTypes";
 import { formatDecimalOddsFromMillis } from "@/lib/api/betTypes";
 import { isThreeWayLineup, MatchResultThreeWayRow } from "@/features/bet/MatchResultThreeWay";
 import { features } from "@/lib/config";
@@ -102,7 +102,16 @@ export default function MarketDetailScreen() {
       if (!Number.isFinite(expected_odds_millis) || expected_odds_millis <= 0) {
         throw new Error("Odds unavailable; pull to refresh and try again.");
       }
-      const placed = await placeBetOrder([{ kid, stake_points: stakePoints, expected_odds_millis }]);
+      const line: CreateBetOrderLine = {
+        kid,
+        stake_points: stakePoints,
+        expected_odds_millis,
+      };
+      if (selected.outcome_code !== undefined && market !== undefined) {
+        line.market_id = market.id;
+        line.outcome_code = selected.outcome_code;
+      }
+      const placed = await placeBetOrder([line]);
       return placed.id;
     },
     onSuccess(orderId: number) {

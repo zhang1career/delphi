@@ -49,7 +49,7 @@ function mallFiniteInt(value: unknown): number | null {
  */
 function pointsBalanceMinorFromDataPayload(root: Record<string, unknown>): number {
   const read = (slice: Record<string, unknown>): number | null => {
-    const bal = mallFiniteInt(slice.balance_minor ?? slice.balanceMinor);
+    const bal = mallFiniteInt(slice.balance_minor ?? slice.balanceMinor ?? slice.balance);
     return bal !== null && bal >= 0 ? bal : null;
   };
 

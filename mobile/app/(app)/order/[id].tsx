@@ -103,10 +103,14 @@ export default function OrderDetailScreen() {
     >
       {order.lines.map((line, idx) => (
         <View
-          key={`${line.kid}-${idx}`}
+          key={`${idx}-${line.market_id ?? "m"}-${line.selection_code ?? line.kid}`}
           className="bg-surface-card border border-surface-border rounded-lg p-3 mb-2"
         >
-          <Text className="text-slate-200 text-sm">Selection kid {line.kid}</Text>
+          <Text className="text-slate-200 text-sm">
+            {line.market_id !== undefined && line.selection_code !== undefined
+              ? `Market ${line.market_id} · ${line.selection_code}`
+              : `Selection kid ${line.kid}`}
+          </Text>
           <Text className="text-slate-400 text-xs mt-1">Stake (points) {line.stake_points}</Text>
           {line.decimal_odds_millis !== undefined ? (
             <Text className="text-brand-muted text-sm mt-1">

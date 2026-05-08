@@ -25,6 +25,7 @@ import { normalizeOrderPagination } from "./mallPagination";
 import { fetchWithHttpDebug } from "@/lib/httpDebug";
 import { snowflakeAccessKey } from "@/lib/config";
 import { getServiceOrigins } from "@/lib/serviceOrigins";
+import { surrogateSelectionKidFromMarketOutcome } from "@/lib/api/betSelectionKid";
 
 async function betBase(): Promise<string> {
   const { mallAggBaseUrl } = await getServiceOrigins();
@@ -46,29 +47,48 @@ function mallFiniteInt(value: unknown): number | null {
   return null;
 }
 
-function mallUnixSeconds(value: unknown): number | null {
-  const asInt = mallFiniteInt(value);
-  if (asInt !== null) {
-    return asInt;
+/** Order `ct` / `ut` may be Unix seconds or milliseconds (large integers). */
+function mallOrderEpochSeconds(value: unknown): number | null {
+  const n = mallFiniteInt(value);
+  if (n !== null) {
+    if (n > 1_000_000_000_000) {
+      return Math.floor(n / 1000);
+    }
+    return n;
   }
   if (typeof value === "string") {
     const ms = Date.parse(value);
-    if (!Number.isFinite(ms)) {
-      return null;
+    if (Number.isFinite(ms)) {
+      return Math.floor(ms / 1000);
     }
-    return Math.floor(ms / 1000);
+  }
+  return null;
+}
+
+function betLineSelectionCode(row: Record<string, unknown>): string | null {
+  const sel = row.selection;
+  if (sel && typeof sel === "object" && !Array.isArray(sel)) {
+    const code = (sel as Record<string, unknown>).code;
+    if (typeof code === "string" && code.trim().length > 0) {
+      return code.trim();
+    }
+  }
+  const oc = row.outcome_code;
+  if (typeof oc === "string" && oc.trim().length > 0) {
+    return oc.trim();
   }
   return null;
 }
 
 function pointsBalanceMinorFromDataPayload(root: Record<string, unknown>): number {
-  const bal = mallFiniteInt(root.balance_minor ?? root.balanceMinor);
+  const bal = mallFiniteInt(root.balance_minor ?? root.balanceMinor ?? root.balance);
   if (bal !== null && bal >= 0) {
     return bal;
   }
   const inner = root.data;
   if (inner && typeof inner === "object" && !Array.isArray(inner)) {
-    const nested = mallFiniteInt((inner as Record<string, unknown>).balance_minor);
+    const slice = inner as Record<string, unknown>;
+    const nested = mallFiniteInt(slice.balance_minor ?? slice.balanceMinor ?? slice.balance);
     if (nested !== null && nested >= 0) {
       return nested;
     }
@@ -77,9 +97,17 @@ function pointsBalanceMinorFromDataPayload(root: Record<string, unknown>): numbe
 }
 
 function toBetLine(row: Record<string, unknown>): BetOrderLine {
-  const kid = mallFiniteInt(row.kid);
   const stake_points = mallFiniteInt(row.stake_points);
-  if (kid === null || stake_points === null) {
+  if (stake_points === null) {
+    throw new Error("Malformed bet line");
+  }
+  let kid = mallFiniteInt(row.kid);
+  const market_id = mallFiniteInt(row.market_id);
+  const selection_code = betLineSelectionCode(row);
+  if (kid === null && market_id !== null && selection_code !== null) {
+    kid = surrogateSelectionKidFromMarketOutcome(market_id, selection_code);
+  }
+  if (kid === null) {
     throw new Error("Malformed bet line");
   }
   const decimal_odds_millis = mallFiniteInt(row.decimal_odds_millis) ?? undefined;
@@ -88,6 +116,8 @@ function toBetLine(row: Record<string, unknown>): BetOrderLine {
   return {
     kid,
     stake_points,
+    ...(market_id !== null ? { market_id } : {}),
+    ...(selection_code !== null ? { selection_code } : {}),
     ...(decimal_odds_millis !== undefined ? { decimal_odds_millis } : {}),
     ...(potential_return_points !== undefined ? { potential_return_points } : {}),
     ...(row.odds_snapshot !== undefined ? { odds_snapshot: row.odds_snapshot } : {}),
@@ -113,8 +143,8 @@ function toBetOrderSummary(row: Record<string, unknown>): BetOrderSummary {
   const uid = mallFiniteInt(row.uid);
   const status = mallFiniteInt(row.status);
   const total = mallFiniteInt(row.total_price);
-  const ct = mallUnixSeconds(row.ct);
-  const ut = mallUnixSeconds(row.ut);
+  const ct = mallOrderEpochSeconds(row.ct);
+  const ut = mallOrderEpochSeconds(row.ut);
   if (id === null || uid === null || status === null || total === null || ct === null || ut === null) {
     throw new Error("Malformed bet order summary");
   }

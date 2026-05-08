@@ -6,6 +6,7 @@ import { normalizeProductPagination } from "./mallPagination";
 import { betGameAssetCdnUriWithBase } from "@/lib/betCdn";
 import { fetchWithHttpDebug } from "@/lib/httpDebug";
 import { getServiceOrigins } from "@/lib/serviceOrigins";
+import { surrogateSelectionKidFromMarketOutcome } from "@/lib/api/betSelectionKid";
 
 async function betBase(): Promise<string> {
   const { mallAggBaseUrl } = await getServiceOrigins();
@@ -90,6 +91,17 @@ function toEventSummary(row: Record<string, unknown>): SportEventSummary {
   return { id, name, starts_at, status };
 }
 
+function selectionNumericIdFromRow(row: Record<string, unknown>): number | null {
+  const keys = ["id", "kid", "selection_id"] as const;
+  for (const k of keys) {
+    const n = finiteInt(row[k]);
+    if (n !== null) {
+      return n;
+    }
+  }
+  return null;
+}
+
 function toMarket(row: Record<string, unknown>): SportMarket {
   const id = finiteInt(row.id);
   const game_id = finiteInt(row.game_id);
@@ -112,7 +124,7 @@ function toMarket(row: Record<string, unknown>): SportMarket {
   if (Array.isArray(selRaw)) {
     selections = selRaw
       .filter((r): r is Record<string, unknown> => !!r && typeof r === "object" && !Array.isArray(r))
-      .map((r) => toSelection(r));
+      .map((r) => toSelection(r, id));
   }
   return {
     id,
@@ -160,8 +172,14 @@ function attachMarketStatusLabels(items: SportMarket[], map: Map<number, string>
   });
 }
 
-function toSelection(row: Record<string, unknown>): SportSelection {
-  const id = finiteInt(row.id);
+function toSelection(row: Record<string, unknown>, marketId: number): SportSelection {
+  let id = selectionNumericIdFromRow(row);
+  const outcomeRaw = row.outcome_code;
+  const outcome_code =
+    typeof outcomeRaw === "string" && outcomeRaw.trim().length > 0 ? outcomeRaw.trim() : undefined;
+  if (id === null && outcome_code !== undefined) {
+    id = surrogateSelectionKidFromMarketOutcome(marketId, outcome_code);
+  }
   const label = typeof row.label === "string" ? row.label : "";
   const current_odds_millis = finiteInt(row.current_odds_millis) ?? 0;
   const status = finiteInt(row.status) ?? -1;
@@ -180,6 +198,7 @@ function toSelection(row: Record<string, unknown>): SportSelection {
   }
   const out: SportSelection = {
     id,
+    ...(outcome_code !== undefined ? { outcome_code } : {}),
     label,
     current_odds_millis,
     status,
@@ -212,6 +231,11 @@ export async function fetchBetEventsPage(params?: {
   page?: number;
   per_page?: number;
   group_code?: string;
+  /**
+   * Filter by game status (e.g. `1` = open). Defaults to `1` when omitted.
+   * Pass `null` to omit the query parameter (all statuses, if the server allows).
+   */
+  status?: number | null;
 }): Promise<PagedEvents> {
   const { mallAggBaseUrl, mallCdnBaseUrl } = await getServiceOrigins();
   const base = mallAggBaseUrl.replace(/\/$/, "");
@@ -223,6 +247,11 @@ export async function fetchBetEventsPage(params?: {
   const group_code = params?.group_code?.trim();
   if (group_code) {
     qs.set("group_code", group_code);
+  }
+  const rawStatus = params?.status;
+  const status = rawStatus === undefined ? 1 : rawStatus;
+  if (status !== null) {
+    qs.set("status", String(status));
   }
   const res = await fetchWithHttpDebug(`${base}${BET_GAMES_PATH}?${qs.toString()}`, {
     method: "GET",
@@ -276,6 +305,11 @@ export async function fetchBetMarketsPage(params?: {
   page?: number;
   per_page?: number;
   game_id?: number;
+  /**
+   * Filter by market status (e.g. `1` = open). Defaults to `1` when omitted.
+   * Pass `null` to omit the query parameter (all statuses, if the server allows).
+   */
+  status?: number | null;
 }): Promise<PagedMarkets> {
   const base = await betBase();
   const qs = new URLSearchParams({
@@ -285,6 +319,11 @@ export async function fetchBetMarketsPage(params?: {
   const gid = params?.game_id;
   if (gid !== undefined && gid >= 1) {
     qs.set("game_id", String(gid));
+  }
+  const rawStatus = params?.status;
+  const status = rawStatus === undefined ? 1 : rawStatus;
+  if (status !== null) {
+    qs.set("status", String(status));
   }
   const res = await fetchWithHttpDebug(`${base}${BET_MARKETS_PATH}?${qs.toString()}`, {
     method: "GET",

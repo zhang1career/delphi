@@ -10,11 +10,16 @@ import { BET_GAMES_GROUP_CODE_FIFA_2026 } from "@/lib/api/betCatalogApi";
 import { betGameAssetCdnUri } from "@/lib/betCdn";
 import { features } from "@/lib/config";
 
+/** `GET /api/bet/games?per_page=…` for banner carousel; caps slide count. */
+const BET_HOME_BANNER_GAMES_PER_PAGE = 5;
+
 export default function BetHomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const webNavTop = useWebTopTabBarInset();
-  const eventsQ = useBetEventsInfiniteQuery(12, { group_code: BET_GAMES_GROUP_CODE_FIFA_2026 });
+  const eventsQ = useBetEventsInfiniteQuery(BET_HOME_BANNER_GAMES_PER_PAGE, {
+    group_code: BET_GAMES_GROUP_CODE_FIFA_2026,
+  });
 
   const eventRows = eventsQ.data?.pages.flatMap((p) => p.items) ?? [];
 
@@ -37,7 +42,7 @@ export default function BetHomeScreen() {
       };
     })
     .filter((s): s is BannerSlide => s !== null)
-    .slice(0, 8);
+    .slice(0, BET_HOME_BANNER_GAMES_PER_PAGE);
 
   if (!features.commerce) {
     return (

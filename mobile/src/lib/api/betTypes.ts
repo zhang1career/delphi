@@ -37,13 +37,15 @@ export type SportMarket = {
   status: number;
   /** From `data._dict.market_status` on `GET /api/bet/markets` when present. */
   market_status_label?: string;
-  /** Present on `GET /api/bet/markets/{id}` and on list when `include_selections` is true. */
+  /** Present on `GET /api/bet/markets/{id}`; list `GET /api/bet/markets` may omit this field. */
   selections?: SportSelection[];
   game?: SportEventSummary | null;
 };
 
 export type SportSelection = {
   id: number;
+  /** When the catalog omits numeric `id`, the API may identify the line by code (place API may still require numeric `kid`—see backend). */
+  outcome_code?: string;
   label: string;
   current_odds_millis: number;
   status: number;
@@ -58,6 +60,9 @@ export type SportSelection = {
 export type BetOrderLine = {
   kid: number;
   stake_points: number;
+  /** Present when the API identifies the line by market + `selection.code` instead of `kid`. */
+  market_id?: number;
+  selection_code?: string;
   decimal_odds_millis?: number;
   potential_return_points?: number;
   odds_snapshot?: unknown;
@@ -100,6 +105,9 @@ export type CreateBetOrderLine = {
   stake_points: number;
   /** Client-shown odds (`current_odds_millis`) for this selection; server compares at lock. */
   expected_odds_millis: number;
+  /** Catalog `biz_market.id` when the gateway resolves `kid` from `outcome_code`. */
+  market_id?: number;
+  outcome_code?: string;
 };
 
 export function betOrderStatusLabel(status: number): string {

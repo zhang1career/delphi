@@ -18,19 +18,22 @@ const DEFAULT_PER_PAGE = 15;
 /** Market detail: poll catalog so displayed odds stay current; aligns with place `expected_odds_millis` UX. */
 const BET_MARKET_POLL_MS = 5 * 60 * 1000;
 
-/** Infinite pages of `GET /api/bet/games` (Sports tab feed + banner imagery from each row's `banner` / `main_media`). */
+/** Infinite pages of `GET /api/bet/games` (Sports tab feed + banner imagery from each row's `banner` / `main_media`). Default `status=1` (open games) via `fetchBetEventsPage`. */
 export function useBetEventsInfiniteQuery(
   perPage: number = DEFAULT_PER_PAGE,
-  options?: { group_code?: string },
+  options?: { group_code?: string; status?: number | null },
 ) {
   const group_code = options?.group_code?.trim();
+  const statusKey =
+    options?.status === undefined ? 1 : options?.status === null ? "all" : options.status;
   return useInfiniteQuery({
-    queryKey: ["bet-events", "paged", perPage, group_code ?? "_none"],
+    queryKey: ["bet-events", "paged", perPage, group_code ?? "_none", statusKey],
     queryFn: ({ pageParam }) =>
       fetchBetEventsPage({
         page: pageParam,
         per_page: perPage,
         ...(group_code ? { group_code } : {}),
+        ...(options?.status !== undefined ? { status: options.status } : {}),
       }),
     initialPageParam: 1,
     getNextPageParam: (last) => {
