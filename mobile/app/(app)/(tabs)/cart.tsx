@@ -15,7 +15,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useWebTopTabBarInset } from "@/lib/navigation/useWebTopTabBarInset";
-import { useBetPointsBalanceQuery } from "@/features/orders/hooks";
+import { useMallPointsBalanceQuery } from "@/features/orders/hooks";
 import { checkoutMall, createMallOrder } from "@/lib/api/mallOrdersApi";
 import { MallApiError } from "@/lib/api/mallEnvelope";
 import { getCommerceRepo } from "@/lib/api/index";
@@ -71,7 +71,7 @@ export default function CartScreen() {
   const [pointsInput, setPointsInput] = useState("");
 
   const { data: pointsData, isFetching: pointsFetching, refetch: refetchPoints } =
-    useBetPointsBalanceQuery();
+    useMallPointsBalanceQuery();
 
   useFocusEffect(
     useCallback(() => {
@@ -116,8 +116,7 @@ export default function CartScreen() {
     onSuccess: (result) => {
       clear();
       setPointsInput("");
-      queryClient.invalidateQueries({ queryKey: ["bet-orders"] });
-      queryClient.invalidateQueries({ queryKey: ["bet-points"] });
+      queryClient.invalidateQueries({ queryKey: ["mall-points"] });
       toast.show("订单已创建");
       const prepayJson = encodeURIComponent(JSON.stringify(result.prepay));
       router.push(`/(app)/order/${result.order.id}?prepayJson=${prepayJson}`);

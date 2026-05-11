@@ -20,10 +20,11 @@ export function betOrderPath(orderId: number): string {
   return `/api/bet/orders/${orderId}`;
 }
 
-/** Issued before `POST /api/bet/place` as `X-Request-Id`. */
-export const SNOWFLAKE_ID_PATH = "/api/snowflake/id";
+/** Mint decimal id for `X-Request-Id` before `POST /api/bet/submit`. */
+export const BET_SNOWFLAKE_PATH = "/api/bet/snowflake";
 
-/** Single-step create + settle (stake debit); replaces draft `POST /api/bet/orders` + `POST /api/bet/checkout`. */
-export const BET_PLACE_PATH = "/api/bet/place";
+export const BET_SUBMIT_PATH = "/api/bet/submit";
 
-export const BET_POINTS_PATH = "/api/bet/points";
+export const BET_REPUTATION_PATH = "/api/bet/reputation";
+
+export const BET_LEADERBOARD_PATH = "/api/bet/leaderboard";

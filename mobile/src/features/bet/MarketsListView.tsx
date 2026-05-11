@@ -56,7 +56,7 @@ export function MarketsListView({
   gameId,
   backgroundImageUri,
   listHeader = null,
-  marketsHeading = "Markets",
+  marketsHeading = "Predictions",
   onMarketPress,
   contentPaddingTop = 12,
   contentPaddingBottom = 24,

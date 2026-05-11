@@ -1,7 +1,7 @@
 import { useNavigation } from "@react-navigation/native";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Platform,
@@ -9,24 +9,18 @@ import {
   RefreshControl,
   ScrollView,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { placeBetOrder, useBetMarketQuery } from "@/features/bet/hooks";
+import { submitBetOrder, useBetMarketQuery } from "@/features/bet/hooks";
 import { MallApiError } from "@/lib/api/mallEnvelope";
-import type { CreateBetOrderLine, SportSelection } from "@/lib/api/betTypes";
-import { formatDecimalOddsFromMillis } from "@/lib/api/betTypes";
+import type { SportSelection } from "@/lib/api/betTypes";
 import { isThreeWayLineup, MatchResultThreeWayRow } from "@/features/bet/MatchResultThreeWay";
 import { features } from "@/lib/config";
 import { buildLoginHref } from "@/lib/auth/postLoginReturn";
 import { MallUnauthorizedRedirectError } from "@/lib/auth/mallSessionUnauthorized";
 import { useToast } from "@/lib/notifications/toast";
 import { useAuthStore } from "@/stores/authStore";
-
-/** After each successful catalog fetch, block place briefly so the user sees current odds. */
-const PLACE_COOLDOWN_SEC = 5;
-const PLACE_COOLDOWN_MS = PLACE_COOLDOWN_SEC * 1000;
 
 export default function MarketDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -41,37 +35,10 @@ export default function MarketDetailScreen() {
   const marketQ = useBetMarketQuery(marketId);
 
   const [selectedKid, setSelectedKid] = useState<number | null>(null);
-  const [stakeRaw, setStakeRaw] = useState("100");
   const [refreshing, setRefreshing] = useState(false);
-  const [cooldownTick, setCooldownTick] = useState(0);
 
   const market = marketQ.data;
   const lines = market?.selections ?? [];
-  const catalogDataUpdatedAt = marketQ.dataUpdatedAt ?? 0;
-
-  useEffect(() => {
-    setCooldownTick(0);
-  }, [catalogDataUpdatedAt]);
-
-  useEffect(() => {
-    if (catalogDataUpdatedAt === 0) {
-      return;
-    }
-    const deadline = catalogDataUpdatedAt + PLACE_COOLDOWN_MS;
-    if (Date.now() >= deadline) {
-      return;
-    }
-    const intervalId = setInterval(() => setCooldownTick((n) => n + 1), 1000);
-    return () => clearInterval(intervalId);
-  }, [catalogDataUpdatedAt]);
-
-  const placeCooldownRemainingSec = useMemo(() => {
-    if (catalogDataUpdatedAt === 0) {
-      return 0;
-    }
-    const leftMs = catalogDataUpdatedAt + PLACE_COOLDOWN_MS - Date.now();
-    return leftMs <= 0 ? 0 : Math.ceil(leftMs / 1000);
-  }, [catalogDataUpdatedAt, cooldownTick]);
 
   const onCatalogRefresh = () => {
     setRefreshing(true);
@@ -94,35 +61,18 @@ export default function MarketDetailScreen() {
       if (kid === null || kid === undefined || kid < 1) {
         throw new Error("Choose an outcome.");
       }
-      const stakePoints = Number.parseInt(stakeRaw.trim(), 10);
-      if (!Number.isFinite(stakePoints) || stakePoints < 1) {
-        throw new Error("Enter stake (points, ≥ 1).");
-      }
       const selected = lines.find((x) => x.id === kid);
-      if (!selected) {
+      if (!selected || !market) {
         throw new Error("Choose an outcome.");
       }
-      const expected_odds_millis = selected.current_odds_millis;
-      if (!Number.isFinite(expected_odds_millis) || expected_odds_millis <= 0) {
-        throw new Error("Odds unavailable; pull to refresh and try again.");
-      }
-      const line: CreateBetOrderLine = {
-        kid,
-        stake_points: stakePoints,
-        expected_odds_millis,
-      };
-      if (selected.outcome_code !== undefined && market !== undefined) {
-        line.market_id = market.id;
-        line.outcome_code = selected.outcome_code;
-      }
-      const placed = await placeBetOrder([line]);
-      return placed.id;
+      return submitBetOrder([{ market_id: market.id, outcome_code: selected.outcome_code }]);
     },
-    onSuccess(orderId: number) {
+    onSuccess(placed) {
       void queryClient.invalidateQueries({ queryKey: ["bet-orders"] });
-      void queryClient.invalidateQueries({ queryKey: ["bet-points"] });
-      toast.show("Order placed");
-      router.replace(`/(app)/order/${orderId}`);
+      void queryClient.invalidateQueries({ queryKey: ["bet-reputation"] });
+      void queryClient.invalidateQueries({ queryKey: ["bet-leaderboard"] });
+      toast.show("Prediction submitted");
+      router.replace(`/(app)/order/${placed.id}`);
     },
     onError(e: unknown) {
       if (e instanceof MallUnauthorizedRedirectError) {
@@ -132,7 +82,7 @@ export default function MarketDetailScreen() {
         toast.show(e.message.trim() || `Request failed (${e.errorCode})`, { variant: "error" });
         return;
       }
-      toast.show(e instanceof Error ? e.message : "Could not complete order.", { variant: "error" });
+      toast.show(e instanceof Error ? e.message : "Could not submit prediction.", { variant: "error" });
     },
   });
 
@@ -175,14 +125,14 @@ export default function MarketDetailScreen() {
       ? market.game.name
       : `Game ${market.game_id}`;
 
-  const bottomPad = insets.bottom + 120;
+  const bottomPad = insets.bottom + 100;
 
   const contentShellClass =
     Platform.OS === "web" ? "w-full max-w-2xl self-center px-2" : "w-full";
   const footerBarClass = Platform.OS === "web" ? "w-full max-w-2xl self-center px-4" : "px-4";
   const showThreeWay = isThreeWayLineup(lines);
 
-  const placeBlocked = lines.length === 0 || mutate.isPending || placeCooldownRemainingSec > 0;
+  const submitBlocked = lines.length === 0 || mutate.isPending;
 
   return (
     <View className="flex-1 bg-surface">
@@ -199,6 +149,9 @@ export default function MarketDetailScreen() {
             <Text className="text-slate-400 text-sm">{gameLabel}</Text>
             <Text className="text-slate-300 text-xs mt-1">
               {market.name.trim().length > 0 ? market.name : `Market #${market.id}`}
+            </Text>
+            <Text className="text-slate-500 text-xs mt-2">
+              Pick one outcome. This is a non-monetary prediction; reputation may change after settlement.
             </Text>
           </View>
           {showThreeWay ? (
@@ -221,21 +174,6 @@ export default function MarketDetailScreen() {
           {lines.length === 0 ? (
             <Text className="text-slate-500 px-4">No open selections for this market.</Text>
           ) : null}
-
-          <View className="px-4 mt-6 gap-2">
-            <Text className="text-slate-400 text-xs">Stake (points)</Text>
-            <TextInput
-              className="rounded-xl border border-surface-border bg-surface-card px-3 py-2.5 text-slate-100"
-              keyboardType="number-pad"
-              placeholder="100"
-              placeholderTextColor="#64748b"
-              value={stakeRaw}
-              onChangeText={setStakeRaw}
-            />
-            <Text className="text-slate-500 text-xs mt-2">
-              Checkout debits this full stake from your points wallet (server-side).
-            </Text>
-          </View>
         </View>
       </ScrollView>
 
@@ -245,8 +183,8 @@ export default function MarketDetailScreen() {
       >
         <View className={footerBarClass}>
           <Pressable
-            accessibilityLabel="Place bet draft and checkout"
-            disabled={placeBlocked}
+            accessibilityLabel="Submit prediction"
+            disabled={submitBlocked}
             onPress={() => {
               if (!accessToken?.trim()) {
                 router.push(buildLoginHref(`/(app)/markets/${marketId}`));
@@ -255,17 +193,13 @@ export default function MarketDetailScreen() {
               mutate.mutate();
             }}
             className={`my-3 py-3.5 rounded-xl items-center justify-center ${
-              placeBlocked ? "bg-slate-600 opacity-70" : "bg-brand active:opacity-90"
+              submitBlocked ? "bg-slate-600 opacity-70" : "bg-brand active:opacity-90"
             }`}
           >
             {mutate.isPending ? (
               <ActivityIndicator color="#f8fafc" />
-            ) : placeCooldownRemainingSec > 0 ? (
-              <Text className="text-white font-semibold text-base text-center px-2">
-                Review latest odds ({placeCooldownRemainingSec}s)
-              </Text>
             ) : (
-              <Text className="text-white font-semibold text-base">Place order (checkout)</Text>
+              <Text className="text-white font-semibold text-base">Submit prediction</Text>
             )}
           </Pressable>
         </View>
@@ -283,18 +217,17 @@ function SelectionRow({
   chosen: boolean;
   onSelect: () => void;
 }) {
-  const odds = useMemo(() => formatDecimalOddsFromMillis(line.current_odds_millis), [line.current_odds_millis]);
   return (
     <Pressable
       onPress={onSelect}
       accessibilityRole="radio"
       accessibilityState={{ checked: chosen }}
+      accessibilityLabel={line.label}
       className={`mx-4 mb-2 rounded-xl border p-4 ${
         chosen ? "border-brand bg-surface-card" : "border-surface-border bg-surface"
       } active:opacity-90`}
     >
       <Text className="text-slate-100 font-medium">{line.label}</Text>
-      <Text className="text-brand-muted text-lg mt-1">{odds}</Text>
     </Pressable>
   );
 }

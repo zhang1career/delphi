@@ -42,12 +42,11 @@ export type SportMarket = {
   game?: SportEventSummary | null;
 };
 
+/** Synthetic leg from catalog: `code` / `outcome_code` maps to submit `outcome_code`. */
 export type SportSelection = {
   id: number;
-  /** When the catalog omits numeric `id`, the API may identify the line by code (place API may still require numeric `kid`—see backend). */
-  outcome_code?: string;
+  outcome_code: string;
   label: string;
-  current_odds_millis: number;
   status: number;
   market?: {
     id: number;
@@ -58,39 +57,30 @@ export type SportSelection = {
 };
 
 export type BetOrderLine = {
-  kid: number;
-  stake_points: number;
-  /** Present when the API identifies the line by market + `selection.code` instead of `kid`. */
-  market_id?: number;
-  selection_code?: string;
-  decimal_odds_millis?: number;
-  potential_return_points?: number;
-  odds_snapshot?: unknown;
-  /** 0 pending, 1 win, 2 lose, 3 void */
+  market_id: number;
+  /** Outcome code persisted for the line (API `selection`). */
+  selection: string;
+  pick_label?: string;
   result?: number;
+  /** From `_dict.order_item_result` when present. */
+  result_label?: string;
 };
 
 export type BetOrderFull = {
   id: number;
   uid: number;
   status: number;
-  total_price: number;
-  /** Stake held from points wallet after checkout (normally equals `total_price`). */
-  points_held: number;
   ct: number;
   ut: number;
   lines: BetOrderLine[];
-  ext_inventory?: unknown;
-  ext_id?: unknown;
-  /** CheckoutPhase: 0 draft, 50 await payment (reserved), 60 completed. */
-  checkout_phase?: number;
+  /** Resolved via `_dict.bet_order_status` when the server sends it. */
+  status_label?: string;
 };
 
 export type BetOrderSummary = {
   id: number;
   uid: number;
   status: number;
-  total_price: number;
   ct: number;
   ut: number;
 };
@@ -100,33 +90,37 @@ export type BetOrderListResult = {
   pagination: ListPagination;
 };
 
-export type CreateBetOrderLine = {
-  kid: number;
-  stake_points: number;
-  /** Client-shown odds (`current_odds_millis`) for this selection; server compares at lock. */
-  expected_odds_millis: number;
-  /** Catalog `biz_market.id` when the gateway resolves `kid` from `outcome_code`. */
-  market_id?: number;
-  outcome_code?: string;
+/** Body line for `POST /api/bet/submit` (server accepts exactly one line). */
+export type BetSubmitLine = {
+  market_id: number;
+  outcome_code: string;
 };
 
+export type ReputationData = {
+  score: number;
+};
+
+export type LeaderboardRow = {
+  rank: number;
+  uid: number;
+  score: number;
+};
+
+export type LeaderboardListResult = {
+  items: LeaderboardRow[];
+  pagination: ListPagination;
+};
+
+/** Fallback status text when `_dict` is not on the response. */
 export function betOrderStatusLabel(status: number): string {
   const known: Record<number, string> = {
-    0: "pending",
-    1: "paid",
-    2: "accepted",
-    3: "cancelled",
-    4: "won",
-    5: "lost",
-    6: "void",
+    0: "Pending",
+    1: "Recorded",
+    2: "Accepted",
+    3: "Cancelled",
+    4: "Correct",
+    5: "Incorrect",
+    6: "Void",
   };
   return known[status] ?? `status_${String(status)}`;
-}
-
-/** Display decimal odds from `decimal_odds_millis` (e.g. 1850 → 1.85). */
-export function formatDecimalOddsFromMillis(millis: number | undefined): string {
-  if (millis === undefined || !Number.isFinite(millis)) {
-    return "—";
-  }
-  return (millis / 1000).toFixed(2);
 }

@@ -6,19 +6,17 @@ import {
   fetchBetMarketsPage,
 } from "@/lib/api/betCatalogApi";
 import {
+  fetchBetLeaderboardPage,
   fetchBetOrder,
   fetchBetOrdersPage,
-  fetchBetPointsBalance,
-  placeBetOrder,
+  fetchBetReputation,
+  submitBetOrder,
 } from "@/lib/api/betOrdersApi";
 import { useAuthStore } from "@/stores/authStore";
 
 const DEFAULT_PER_PAGE = 15;
 
-/** Market detail: poll catalog so displayed odds stay current; aligns with place `expected_odds_millis` UX. */
-const BET_MARKET_POLL_MS = 5 * 60 * 1000;
-
-/** Infinite pages of `GET /api/bet/games` (Sports tab feed + banner imagery from each row's `banner` / `main_media`). Default `status=1` (open games) via `fetchBetEventsPage`. */
+/** Infinite pages of `GET /api/bet/games` (events home + banner imagery). Default `status=1`. */
 export function useBetEventsInfiniteQuery(
   perPage: number = DEFAULT_PER_PAGE,
   options?: { group_code?: string; status?: number | null },
@@ -82,8 +80,6 @@ export function useBetMarketQuery(marketId: string) {
     queryKey: ["bet-market", marketId],
     queryFn: () => fetchBetMarketDetail(numeric),
     enabled: ok,
-    refetchInterval: BET_MARKET_POLL_MS,
-    refetchIntervalInBackground: false,
   });
 }
 
@@ -117,16 +113,34 @@ export function useBetOrderQuery(orderId: string) {
   });
 }
 
-export function useBetPointsBalanceQuery() {
+export function useBetReputationQuery() {
   const token = useAuthStore((s) => s.accessToken);
   return useQuery({
-    queryKey: ["bet-points", token],
+    queryKey: ["bet-reputation", token],
     queryFn: () => {
       if (!token) throw new Error("Not signed in");
-      return fetchBetPointsBalance();
+      return fetchBetReputation();
     },
     enabled: !!token,
   });
 }
 
-export { placeBetOrder };
+export function useBetLeaderboardInfiniteQuery(perPage: number = DEFAULT_PER_PAGE) {
+  const token = useAuthStore((s) => s.accessToken);
+  return useInfiniteQuery({
+    queryKey: ["bet-leaderboard", "paged", perPage, token],
+    queryFn: ({ pageParam }) => {
+      if (!token) throw new Error("Not signed in");
+      return fetchBetLeaderboardPage({ page: pageParam, per_page: perPage });
+    },
+    initialPageParam: 1,
+    enabled: !!token,
+    getNextPageParam: (last) => {
+      const { current_page, last_page } = last.pagination;
+      if (current_page >= last_page) return undefined;
+      return current_page + 1;
+    },
+  });
+}
+
+export { submitBetOrder };

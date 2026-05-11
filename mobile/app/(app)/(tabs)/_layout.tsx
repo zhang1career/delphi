@@ -1,6 +1,6 @@
 import { Tabs } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { BetTabBar } from "./BetTabBar";
+import { BetTabBar } from "@/lib/navigation/BetTabBar";
 import { features } from "@/lib/config";
 
 export default function TabLayout() {
@@ -18,7 +18,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Sports",
+          title: "Events",
           headerShown: false,
           href: features.commerce ? undefined : null,
           tabBarIcon: ({ color, size }) => (
@@ -40,7 +40,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="orders"
         options={{
-          title: "Orders",
+          title: "Predictions",
           /** Nested `orders/[id]` stack: hide tab header so there is no Back row; list uses in-screen title. */
           headerShown: false,
           href: features.orders ? undefined : null,

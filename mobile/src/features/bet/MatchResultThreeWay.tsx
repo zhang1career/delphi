@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import { Pressable, Text, View } from "react-native";
 import type { SportSelection } from "@/lib/api/betTypes";
-import { formatDecimalOddsFromMillis } from "@/lib/api/betTypes";
 
 /** Split "Home vs Away" style event titles for column headers (case-insensitive). */
 const EVENT_VS_SPLIT = /\s+vs\.?\s+|\s+v\s+/i;
@@ -20,7 +19,7 @@ export function parseEventTeams(eventName: string): { home: string | null; away:
   return { home: null, away: null };
 }
 
-/** True when the market has three selections; shown as one row (1 · X · 2). API order should be home · draw · away. */
+/** True when the market has three selections; one row (1 · X · 2). */
 export function isThreeWayLineup(lines: SportSelection[]): lines is [SportSelection, SportSelection, SportSelection] {
   return lines.length === 3;
 }
@@ -60,7 +59,7 @@ function buildThreeColMeta(
 }
 
 /**
- * One row of three odds cells (1 · X · 2), matching common sportsbook match-result layout.
+ * One row of three outcome cells (1 · X · 2).
  */
 export function MatchResultThreeWayRow({
   lines,
@@ -79,14 +78,13 @@ export function MatchResultThreeWayRow({
     <View className="flex-row gap-2 px-4">
       {columns.map(({ line, headline, caption }) => {
         const chosen = selectedKid === line.id;
-        const odds = formatDecimalOddsFromMillis(line.current_odds_millis);
         return (
           <Pressable
             key={line.id}
             onPress={() => onSelect(line.id)}
             accessibilityRole="radio"
             accessibilityState={{ checked: chosen }}
-            accessibilityLabel={`${headline}, odds ${odds}`}
+            accessibilityLabel={`${headline}, ${line.label}`}
             className={`flex-1 min-w-0 rounded-xl border p-3 active:opacity-90 ${
               chosen ? "border-brand bg-surface-card" : "border-surface-border bg-surface"
             }`}
@@ -94,12 +92,15 @@ export function MatchResultThreeWayRow({
             <Text className="text-slate-400 text-[10px] font-semibold uppercase tracking-wide" numberOfLines={2}>
               {headline}
             </Text>
-            <Text className="text-brand-muted text-xl font-bold mt-1.5 text-center">{odds}</Text>
             {caption !== undefined && caption !== headline ? (
-              <Text className="text-slate-500 text-[10px] mt-1 text-center" numberOfLines={2}>
+              <Text className="text-slate-100 text-sm font-medium mt-1.5 text-center" numberOfLines={2}>
                 {caption}
               </Text>
-            ) : null}
+            ) : (
+              <Text className="text-slate-200 text-sm font-medium mt-1.5 text-center" numberOfLines={2}>
+                {line.label}
+              </Text>
+            )}
           </Pressable>
         );
       })}

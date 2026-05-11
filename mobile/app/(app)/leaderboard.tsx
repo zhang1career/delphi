@@ -9,26 +9,17 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useWebTopTabBarInset } from "@/lib/navigation/useWebTopTabBarInset";
-import { useOrdersInfiniteQuery } from "@/features/orders/hooks";
-import { betOrderStatusLabel } from "@/lib/api/betTypes";
-import { features } from "@/lib/config";
+import { useBetLeaderboardInfiniteQuery } from "@/features/bet/hooks";
 import { buildLoginHref } from "@/lib/auth/postLoginReturn";
 import { useAuthStore } from "@/stores/authStore";
+import { useWebTopTabBarInset } from "@/lib/navigation/useWebTopTabBarInset";
 
-function formatTime(sec: number): string {
-  try {
-    return new Date(sec * 1000).toLocaleString();
-  } catch {
-    return String(sec);
-  }
-}
-
-export default function OrdersScreen() {
+export default function LeaderboardScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const webNavTop = useWebTopTabBarInset();
   const token = useAuthStore((s) => s.accessToken);
+
   const {
     data,
     isPending,
@@ -39,19 +30,9 @@ export default function OrdersScreen() {
     hasNextPage,
     isFetchingNextPage,
     error,
-  } = useOrdersInfiniteQuery();
-  const rows = data?.pages.flatMap((p) => p.items) ?? [];
+  } = useBetLeaderboardInfiniteQuery(30);
 
-  if (!features.orders) {
-    return (
-      <View
-        className="flex-1 items-center justify-center px-6"
-        style={{ paddingTop: Platform.OS === "web" ? webNavTop : insets.top }}
-      >
-        <Text className="text-slate-300 text-center">Predictions list is off in app config.</Text>
-      </View>
-    );
-  }
+  const rows = data?.pages.flatMap((p) => p.items) ?? [];
 
   if (!token) {
     return (
@@ -59,10 +40,10 @@ export default function OrdersScreen() {
         className="flex-1 bg-surface px-6 justify-center"
         style={{ paddingTop: Platform.OS === "web" ? webNavTop + 8 : insets.top + 8 }}
       >
-        <Text className="text-xl font-bold text-slate-100 mb-3">Predictions</Text>
-        <Text className="text-slate-400 mb-6">Sign in to see your submitted predictions.</Text>
+        <Text className="text-xl font-bold text-slate-100 mb-3">Leaderboard</Text>
+        <Text className="text-slate-400 mb-6">Sign in to view reputation rankings.</Text>
         <Pressable
-          onPress={() => router.push(buildLoginHref("/(app)/(tabs)/orders"))}
+          onPress={() => router.push(buildLoginHref("/(app)/leaderboard"))}
           className="bg-brand py-3.5 rounded-xl items-center active:opacity-90"
         >
           <Text className="text-white font-semibold text-base">Sign in</Text>
@@ -76,10 +57,12 @@ export default function OrdersScreen() {
       className="flex-1 bg-surface"
       style={{ paddingTop: Platform.OS === "web" ? webNavTop + 8 : insets.top + 8 }}
     >
-      <Text className="text-xl font-bold text-slate-100 px-4 mb-2">Predictions</Text>
+      <Text className="text-slate-500 text-xs px-4 mb-2">
+        Rankings reflect non-redeemable prediction reputation only.
+      </Text>
       <FlatList
         data={rows}
-        keyExtractor={(item) => String(item.id)}
+        keyExtractor={(item) => `${item.rank}-${item.uid}`}
         refreshControl={
           <RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} tintColor="#a5b4fc" />
         }
@@ -90,7 +73,7 @@ export default function OrdersScreen() {
         ListHeaderComponent={
           isError ? (
             <Text className="text-red-400 px-4 mb-2">
-              {error instanceof Error ? error.message : "Could not load predictions."}
+              {error instanceof Error ? error.message : "Could not load leaderboard."}
             </Text>
           ) : null
         }
@@ -107,21 +90,16 @@ export default function OrdersScreen() {
               <ActivityIndicator color="#a5b4fc" />
             </View>
           ) : (
-            <Text className="text-slate-500 px-4">No predictions yet.</Text>
+            <Text className="text-slate-500 px-4">No rows yet.</Text>
           )
         }
         contentContainerStyle={{ paddingBottom: 32, paddingHorizontal: 16 }}
         renderItem={({ item }) => (
-          <Pressable
-            onPress={() => router.push(`/(app)/order/${item.id}`)}
-            className="bg-surface-card rounded-xl border border-surface-border p-4 mb-3 active:opacity-90"
-          >
-            <Text className="text-slate-100 font-semibold">#{item.id}</Text>
-            <Text className="text-slate-400 text-xs mt-1 capitalize">
-              {betOrderStatusLabel(item.status)}
-            </Text>
-            <Text className="text-slate-500 text-xs mt-2">{formatTime(item.ct)}</Text>
-          </Pressable>
+          <View className="bg-surface-card rounded-xl border border-surface-border p-4 mb-2 flex-row justify-between items-center">
+            <Text className="text-slate-400 w-10 font-semibold">#{item.rank}</Text>
+            <Text className="text-slate-300 flex-1 text-sm">User {item.uid}</Text>
+            <Text className="text-slate-100 font-semibold">{item.score}</Text>
+          </View>
         )}
       />
     </View>

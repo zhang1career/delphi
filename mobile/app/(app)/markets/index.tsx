@@ -45,7 +45,7 @@ export default function MarketsScreen() {
     if (t) {
       navigation.setOptions({ title: t });
     } else {
-      navigation.setOptions({ title: "Markets" });
+      navigation.setOptions({ title: "Predictions" });
     }
   }, [navigation, titleParam]);
 

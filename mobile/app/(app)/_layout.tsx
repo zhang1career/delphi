@@ -21,7 +21,7 @@ export default function AppGroupLayout() {
         name="markets/index"
         options={{
           headerShown: true,
-          title: "Markets",
+          title: "Predictions",
           headerBackTitle: "Back",
           headerStyle: { backgroundColor: "#0f172a" },
           headerTintColor: "#f1f5f9",
@@ -32,7 +32,7 @@ export default function AppGroupLayout() {
         options={{
           headerShown: true,
           headerBackTitle: "Back",
-          title: "Market",
+          title: "Pick outcome",
           headerStyle: { backgroundColor: "#0f172a" },
           headerTintColor: "#f1f5f9",
         }}
@@ -42,10 +42,20 @@ export default function AppGroupLayout() {
         options={{ headerShown: true, title: "Product", headerBackTitle: "Back" }}
       />
       <Stack.Screen
+        name="leaderboard"
+        options={{
+          headerShown: true,
+          title: "Leaderboard",
+          headerBackTitle: "Back",
+          headerStyle: { backgroundColor: "#0f172a" },
+          headerTintColor: "#f1f5f9",
+        }}
+      />
+      <Stack.Screen
         name="order/[id]"
         options={{
           headerShown: true,
-          title: "Order",
+          title: "Prediction",
           headerBackTitle: "Back",
           headerStyle: { backgroundColor: "#0f172a" },
           headerTintColor: "#f1f5f9",

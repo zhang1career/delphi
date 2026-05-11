@@ -174,16 +174,15 @@ function attachMarketStatusLabels(items: SportMarket[], map: Map<number, string>
 
 function toSelection(row: Record<string, unknown>, marketId: number): SportSelection {
   let id = selectionNumericIdFromRow(row);
-  const outcomeRaw = row.outcome_code;
+  const codeRaw = row.code ?? row.outcome_code;
   const outcome_code =
-    typeof outcomeRaw === "string" && outcomeRaw.trim().length > 0 ? outcomeRaw.trim() : undefined;
+    typeof codeRaw === "string" && codeRaw.trim().length > 0 ? codeRaw.trim() : undefined;
   if (id === null && outcome_code !== undefined) {
     id = surrogateSelectionKidFromMarketOutcome(marketId, outcome_code);
   }
   const label = typeof row.label === "string" ? row.label : "";
-  const current_odds_millis = finiteInt(row.current_odds_millis) ?? 0;
   const status = finiteInt(row.status) ?? -1;
-  if (id === null) {
+  if (id === null || outcome_code === undefined) {
     throw new Error("Malformed selection");
   }
   const mk = row.market;
@@ -198,9 +197,8 @@ function toSelection(row: Record<string, unknown>, marketId: number): SportSelec
   }
   const out: SportSelection = {
     id,
-    ...(outcome_code !== undefined ? { outcome_code } : {}),
+    outcome_code,
     label,
-    current_odds_millis,
     status,
     market:
       mk && typeof mk === "object" && !Array.isArray(mk)

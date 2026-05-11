@@ -60,7 +60,7 @@ export default function BetHomeScreen() {
       className="flex-1 bg-surface"
       style={{ paddingTop: Platform.OS === "web" ? webNavTop + 8 : insets.top + 8 }}
     >
-      <Text className="text-xl font-bold text-slate-100 px-4 mb-2">Games</Text>
+      <Text className="text-xl font-bold text-slate-100 px-4 mb-2">Events</Text>
       <MarketsListView
         listHeader={
           <>
