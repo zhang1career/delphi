@@ -20,6 +20,7 @@ import { checkoutMall, createMallOrder } from "@/lib/api/mallOrdersApi";
 import { MallApiError } from "@/lib/api/mallEnvelope";
 import { getCommerceRepo } from "@/lib/api/index";
 import { features } from "@/lib/config";
+import { MallUnauthorizedRedirectError } from "@/lib/auth/mallSessionUnauthorized";
 import { useToast } from "@/lib/notifications/toast";
 import { useAuthStore } from "@/stores/authStore";
 import { useCartStore, type CartLine } from "@/stores/cartStore";
@@ -122,6 +123,9 @@ export default function CartScreen() {
       router.push(`/(app)/order/${result.order.id}?prepayJson=${prepayJson}`);
     },
     onError: (e) => {
+      if (e instanceof MallUnauthorizedRedirectError) {
+        return;
+      }
       if (e instanceof MallApiError) {
         toast.show(e.message.trim() || `请求失败 (${e.errorCode})`, { variant: "error" });
         return;

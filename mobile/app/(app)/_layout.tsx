@@ -1,11 +1,8 @@
-import { Redirect, Stack } from "expo-router";
+import { Stack } from "expo-router";
 import { useTokenRefreshInterval } from "@/lib/auth/useTokenRefreshInterval";
-import { useAuthStore } from "@/stores/authStore";
 
 export default function AppGroupLayout() {
-  const accessToken = useAuthStore((s) => s.accessToken);
   useTokenRefreshInterval();
-  if (!accessToken) return <Redirect href="/(auth)/login" />;
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#0f172a" } }}>
       <Stack.Screen name="(tabs)" />

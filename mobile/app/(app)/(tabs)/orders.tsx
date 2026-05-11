@@ -13,6 +13,8 @@ import { useWebTopTabBarInset } from "@/lib/navigation/useWebTopTabBarInset";
 import { useOrdersInfiniteQuery } from "@/features/orders/hooks";
 import { betOrderStatusLabel } from "@/lib/api/betTypes";
 import { features } from "@/lib/config";
+import { buildLoginHref } from "@/lib/auth/postLoginReturn";
+import { useAuthStore } from "@/stores/authStore";
 
 function formatMinor(n: number): string {
   return `$${(n / 100).toFixed(2)}`;
@@ -30,6 +32,7 @@ export default function OrdersScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const webNavTop = useWebTopTabBarInset();
+  const token = useAuthStore((s) => s.accessToken);
   const {
     data,
     isPending,
@@ -50,6 +53,24 @@ export default function OrdersScreen() {
         style={{ paddingTop: Platform.OS === "web" ? webNavTop : insets.top }}
       >
         <Text className="text-slate-300 text-center">Orders tab is off in app config features.</Text>
+      </View>
+    );
+  }
+
+  if (!token) {
+    return (
+      <View
+        className="flex-1 bg-surface px-6 justify-center"
+        style={{ paddingTop: Platform.OS === "web" ? webNavTop + 8 : insets.top + 8 }}
+      >
+        <Text className="text-xl font-bold text-slate-100 mb-3">Orders</Text>
+        <Text className="text-slate-400 mb-6">Sign in to see your orders.</Text>
+        <Pressable
+          onPress={() => router.push(buildLoginHref("/(app)/(tabs)/orders"))}
+          className="bg-brand py-3.5 rounded-xl items-center active:opacity-90"
+        >
+          <Text className="text-white font-semibold text-base">Sign in</Text>
+        </Pressable>
       </View>
     );
   }

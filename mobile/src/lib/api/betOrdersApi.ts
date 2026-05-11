@@ -26,6 +26,10 @@ import { fetchWithHttpDebug } from "@/lib/httpDebug";
 import { snowflakeAccessKey } from "@/lib/config";
 import { getServiceOrigins } from "@/lib/serviceOrigins";
 import { surrogateSelectionKidFromMarketOutcome } from "@/lib/api/betSelectionKid";
+import {
+  MallUnauthorizedRedirectError,
+  redirectIfMallSessionUnauthorized,
+} from "@/lib/auth/mallSessionUnauthorized";
 
 async function betBase(): Promise<string> {
   const { mallAggBaseUrl } = await getServiceOrigins();
@@ -208,6 +212,9 @@ export async function fetchBetOrdersPage(params?: {
   });
   const env = await readMallEnvelope(res);
   if (res.status === 401) {
+    if (redirectIfMallSessionUnauthorized(res, env)) {
+      throw new MallUnauthorizedRedirectError();
+    }
     throw new Error(env.message?.trim() || "Unauthorized");
   }
   if (!res.ok) {
@@ -242,6 +249,9 @@ export async function fetchBetOrder(orderId: string): Promise<BetOrderFull | nul
     return null;
   }
   if (res.status === 401) {
+    if (redirectIfMallSessionUnauthorized(res, env)) {
+      throw new MallUnauthorizedRedirectError();
+    }
     throw new Error(env.message?.trim() || "Unauthorized");
   }
   if (!res.ok) {
@@ -283,6 +293,9 @@ async function fetchBetSnowflakeRequestId(base: string): Promise<string> {
   });
   const env = await readMallEnvelope(res);
   if (res.status === 401) {
+    if (redirectIfMallSessionUnauthorized(res, env)) {
+      throw new MallUnauthorizedRedirectError();
+    }
     throw new Error(env.message?.trim() || "Unauthorized");
   }
   assertMallSuccessHttp(env, res.status);
@@ -306,6 +319,9 @@ export async function placeBetOrder(lines: CreateBetOrderLine[]): Promise<BetOrd
   });
   const env = await readMallEnvelope(res);
   if (res.status === 401) {
+    if (redirectIfMallSessionUnauthorized(res, env)) {
+      throw new MallUnauthorizedRedirectError();
+    }
     throw new Error(env.message?.trim() || "Unauthorized");
   }
   assertMallSuccessHttp(env, res.status);
@@ -328,6 +344,9 @@ export async function fetchBetPointsBalance(): Promise<PointsBalanceData> {
   });
   const env = await readMallEnvelope(res);
   if (res.status === 401) {
+    if (redirectIfMallSessionUnauthorized(res, env)) {
+      throw new MallUnauthorizedRedirectError();
+    }
     throw new Error(env.message?.trim() || "Unauthorized");
   }
   assertMallSuccessHttp(env, res.status);

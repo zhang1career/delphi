@@ -19,7 +19,10 @@ import type { CreateBetOrderLine, SportSelection } from "@/lib/api/betTypes";
 import { formatDecimalOddsFromMillis } from "@/lib/api/betTypes";
 import { isThreeWayLineup, MatchResultThreeWayRow } from "@/features/bet/MatchResultThreeWay";
 import { features } from "@/lib/config";
+import { buildLoginHref } from "@/lib/auth/postLoginReturn";
+import { MallUnauthorizedRedirectError } from "@/lib/auth/mallSessionUnauthorized";
 import { useToast } from "@/lib/notifications/toast";
+import { useAuthStore } from "@/stores/authStore";
 
 /** After each successful catalog fetch, block place briefly so the user sees current odds. */
 const PLACE_COOLDOWN_SEC = 5;
@@ -32,6 +35,7 @@ export default function MarketDetailScreen() {
   const toast = useToast();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
+  const accessToken = useAuthStore((s) => s.accessToken);
 
   const marketId = typeof id === "string" ? id : "";
   const marketQ = useBetMarketQuery(marketId);
@@ -121,6 +125,9 @@ export default function MarketDetailScreen() {
       router.replace(`/(app)/order/${orderId}`);
     },
     onError(e: unknown) {
+      if (e instanceof MallUnauthorizedRedirectError) {
+        return;
+      }
       if (e instanceof MallApiError) {
         toast.show(e.message.trim() || `Request failed (${e.errorCode})`, { variant: "error" });
         return;
@@ -240,7 +247,13 @@ export default function MarketDetailScreen() {
           <Pressable
             accessibilityLabel="Place bet draft and checkout"
             disabled={placeBlocked}
-            onPress={() => mutate.mutate()}
+            onPress={() => {
+              if (!accessToken?.trim()) {
+                router.push(buildLoginHref(`/(app)/markets/${marketId}`));
+                return;
+              }
+              mutate.mutate();
+            }}
             className={`my-3 py-3.5 rounded-xl items-center justify-center ${
               placeBlocked ? "bg-slate-600 opacity-70" : "bg-brand active:opacity-90"
             }`}

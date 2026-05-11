@@ -1,16 +1,18 @@
-import { useRouter } from "expo-router";
-
-export const options = { title: "Sign in" };
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import { Text, View } from "react-native";
 import { Button } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
 import { loginWithPassword } from "@/lib/api/login";
 import { applySession } from "@/lib/auth/sessionLifecycle";
+import { hrefAfterLoginFromParam } from "@/lib/auth/postLoginReturn";
 import { useToast } from "@/lib/notifications/toast";
+
+export const options = { title: "Sign in" };
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const toast = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -43,7 +45,7 @@ export default function LoginScreen() {
             const session = await loginWithPassword(email.trim(), password);
             await applySession(session);
             toast.show("Signed in");
-            router.replace("/(app)/(tabs)");
+            router.replace(hrefAfterLoginFromParam(returnTo));
           } catch (e) {
             const message = e instanceof Error ? e.message : "Sign in failed";
             toast.show(message, { variant: "error" });

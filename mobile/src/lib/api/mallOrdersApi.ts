@@ -18,6 +18,10 @@ import { normalizeOrderPagination } from "./mallPagination";
 import type { OrderDetail, OrderListResult, OrderStatus, OrderSummary } from "./orderTypes";
 import { fetchWithHttpDebug } from "@/lib/httpDebug";
 import { getServiceOrigins } from "@/lib/serviceOrigins";
+import {
+  MallUnauthorizedRedirectError,
+  redirectIfMallSessionUnauthorized,
+} from "@/lib/auth/mallSessionUnauthorized";
 
 async function mallBaseOrThrow(): Promise<string> {
   const { mallAggBaseUrl } = await getServiceOrigins();
@@ -285,6 +289,9 @@ export async function fetchMallOrdersPage(params?: {
   });
   const env = await readMallEnvelope(res);
   if (res.status === 401) {
+    if (redirectIfMallSessionUnauthorized(res, env)) {
+      throw new MallUnauthorizedRedirectError();
+    }
     throw new Error(env.message?.trim() || "Unauthorized");
   }
   if (!res.ok) {
@@ -319,6 +326,9 @@ export async function createMallOrder(lines: CreateMallOrderLine[]): Promise<Ord
   });
   const env = await readMallEnvelope(res);
   if (res.status === 401) {
+    if (redirectIfMallSessionUnauthorized(res, env)) {
+      throw new MallUnauthorizedRedirectError();
+    }
     throw new Error(env.message?.trim() || "Unauthorized");
   }
   assertMallSuccessHttp(env, res.status);
@@ -360,6 +370,9 @@ export async function checkoutMall(input: {
   });
   const env = await readMallEnvelope(res);
   if (res.status === 401) {
+    if (redirectIfMallSessionUnauthorized(res, env)) {
+      throw new MallUnauthorizedRedirectError();
+    }
     throw new Error(env.message?.trim() || "Unauthorized");
   }
   assertMallSuccessHttp(env, res.status);
@@ -382,6 +395,9 @@ async function fetchMallPointsBalanceUncapped(): Promise<PointsBalanceData> {
   });
   const env = await readMallEnvelope(res);
   if (res.status === 401) {
+    if (redirectIfMallSessionUnauthorized(res, env)) {
+      throw new MallUnauthorizedRedirectError();
+    }
     throw new Error(env.message?.trim() || "Unauthorized");
   }
   assertMallSuccessHttp(env, res.status);
@@ -445,6 +461,9 @@ export async function fetchMallOrder(orderId: string): Promise<OrderDetail | nul
     return null;
   }
   if (res.status === 401) {
+    if (redirectIfMallSessionUnauthorized(res, env)) {
+      throw new MallUnauthorizedRedirectError();
+    }
     throw new Error(env.message?.trim() || "Unauthorized");
   }
   if (!res.ok) {
