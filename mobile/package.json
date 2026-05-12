@@ -17,7 +17,7 @@
     "@react-navigation/native": "^6.1.18",
     "@tanstack/react-query": "^5.62.8",
     "@zhang1career/network": "^0.4.0",
-    "@zhang1career/notifications": "^0.2.0",
+    "@zhang1career/notifications": "^0.4.0",
     "expo": "~50.0.20",
     "expo-av": "~13.10.6",
     "expo-constants": "~15.4.6",

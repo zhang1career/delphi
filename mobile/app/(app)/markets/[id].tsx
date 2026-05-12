@@ -67,12 +67,14 @@ export default function MarketDetailScreen() {
       }
       return submitBetOrder([{ market_id: market.id, outcome_code: selected.outcome_code }]);
     },
-    onSuccess(placed) {
+    onSuccess() {
       void queryClient.invalidateQueries({ queryKey: ["bet-orders"] });
       void queryClient.invalidateQueries({ queryKey: ["bet-reputation"] });
       void queryClient.invalidateQueries({ queryKey: ["bet-leaderboard"] });
-      toast.show("Prediction submitted");
-      router.replace(`/(app)/order/${placed.id}`);
+      toast.show("Prediction submitted", { level: "info" });
+      setTimeout(() => {
+        router.replace("/(app)/(tabs)");
+      }, 0);
     },
     onError(e: unknown) {
       if (e instanceof MallUnauthorizedRedirectError) {

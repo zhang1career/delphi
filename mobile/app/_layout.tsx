@@ -7,7 +7,6 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthHydrationGate } from "@/lib/auth/AuthHydrationGate";
 import { PostLoginReturnTracker } from "@/lib/auth/PostLoginReturnTracker";
-import { NotificationBarProvider } from "@zhang1career/notifications";
 import { ToastProvider } from "@/lib/notifications/toast";
 import { initServiceOrigins } from "@/lib/serviceOrigins";
 
@@ -63,9 +62,8 @@ export default function RootLayout() {
     >
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
-          <NotificationBarProvider>
-            <ToastProvider>
-              <AuthHydrationGate>
+          <ToastProvider>
+            <AuthHydrationGate>
               <PostLoginReturnTracker />
               <Stack
                 screenOptions={{
@@ -78,9 +76,8 @@ export default function RootLayout() {
                 <Stack.Screen name="(auth)" options={{ title: "" }} />
                 <Stack.Screen name="(app)" options={{ headerShown: false }} />
               </Stack>
-              </AuthHydrationGate>
-            </ToastProvider>
-          </NotificationBarProvider>
+            </AuthHydrationGate>
+          </ToastProvider>
         </QueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

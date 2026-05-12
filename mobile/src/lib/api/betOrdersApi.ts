@@ -68,6 +68,15 @@ function selectionString(row: Record<string, unknown>): string | null {
   if (typeof s === "string" && s.trim().length > 0) {
     return s.trim();
   }
+  if (s && typeof s === "object" && !Array.isArray(s)) {
+    const o = s as Record<string, unknown>;
+    for (const key of ["code", "outcome_code"] as const) {
+      const v = o[key];
+      if (typeof v === "string" && v.trim().length > 0) {
+        return v.trim();
+      }
+    }
+  }
   return null;
 }
 
