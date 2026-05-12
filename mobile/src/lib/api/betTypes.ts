@@ -90,7 +90,7 @@ export type BetOrderListResult = {
   pagination: ListPagination;
 };
 
-/** Body line for `POST /api/bet/submit` (server accepts exactly one line). */
+/** Body line for `POST /api/bet/place` (server accepts exactly one line). */
 export type BetSubmitLine = {
   market_id: number;
   outcome_code: string;

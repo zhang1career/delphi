@@ -2,9 +2,9 @@ import { betAggUserAccessHeaders, betAggUserAccessJsonHeaders } from "./betAggHe
 import {
   BET_LEADERBOARD_PATH,
   BET_ORDERS_PATH,
-  BET_REPUTATION_PATH,
+  BET_PLACE_PATH,
+  BET_POINTS_PATH,
   BET_SNOWFLAKE_PATH,
-  BET_SUBMIT_PATH,
   betOrderPath,
 } from "./betPaths";
 import {
@@ -315,7 +315,7 @@ async function fetchBetSnowflakeRequestId(base: string): Promise<string> {
 }
 
 /**
- * `POST /api/bet/submit` — single line accepted: `{ lines: [{ market_id, outcome_code }] }`.
+ * `POST /api/bet/place` — single line accepted: `{ lines: [{ market_id, outcome_code }] }`.
  */
 export async function submitBetOrder(lines: BetSubmitLine[]): Promise<BetOrderFull> {
   if (lines.length !== 1) {
@@ -323,7 +323,7 @@ export async function submitBetOrder(lines: BetSubmitLine[]): Promise<BetOrderFu
   }
   const base = await betBase();
   const xRequestId = await fetchBetSnowflakeRequestId(base);
-  const res = await fetchWithHttpDebug(`${base}${BET_SUBMIT_PATH}`, {
+  const res = await fetchWithHttpDebug(`${base}${BET_PLACE_PATH}`, {
     method: "POST",
     headers: betAggUserAccessJsonHeaders({ "X-Request-Id": xRequestId }),
     body: JSON.stringify({ lines }),
@@ -345,7 +345,7 @@ export async function submitBetOrder(lines: BetSubmitLine[]): Promise<BetOrderFu
 
 export async function fetchBetReputation(): Promise<ReputationData> {
   const base = await betBase();
-  const res = await fetchWithHttpDebug(`${base}${BET_REPUTATION_PATH}`, {
+  const res = await fetchWithHttpDebug(`${base}${BET_POINTS_PATH}`, {
     method: "GET",
     headers: betAggUserAccessHeaders(),
   });

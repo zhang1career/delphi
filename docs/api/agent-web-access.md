@@ -1,6 +1,6 @@
 # AI Agent 访问 Web 端（Expo Web / Metro 开发服）的校验要求
 
-本文说明 **自动化 / AI agent** 如何从本仓库的 **Web 开发宿主** 获取 OpenAPI 文档，与真实用户通过浏览器使用应用时的接口鉴权是两件事：后者走业务网关（登录态、Bearer、`X-User-Access-Token` 等），见 `mobile/agent-docs/openapi.json`。
+本文说明 **自动化 / AI agent** 如何从本仓库的 **Web 开发宿主** 获取 OpenAPI 文档，与真实用户通过浏览器使用应用时的接口鉴权是两件事：后者走业务网关（登录态、`Authorization: Bearer` 用户 token 等），见 `mobile/agent-docs/openapi.json`。
 
 ## 适用范围
 
@@ -64,7 +64,7 @@ curl -fsS "${ORIGIN}/api/openapi.json" \
 
 ## 文档开启后的业务调用
 
-OpenAPI **只描述**网关上的业务路由与鉴权；agent 在完成「拉取 openapi」之后，调用登录、下注、下单等接口时，仍需按契约使用 **用户 access token**（如 `Authorization: Bearer`（mall-agg）或 `X-User-Access-Token`（bet 订单类））。这部分 **不在** `WEB_AGENT_OPENAPI_SECRET` 的范围内。
+OpenAPI **只描述**网关上的业务路由与鉴权；agent 在完成「拉取 openapi」之后，调用登录、下注、下单等接口时，仍需按契约使用 **用户 access token**（`Authorization: Bearer <access_token>`，mall 与需登录的 bet 路由一致）。这部分 **不在** `WEB_AGENT_OPENAPI_SECRET` 的范围内。
 
 ## 与产品/UI 的建议关系
 

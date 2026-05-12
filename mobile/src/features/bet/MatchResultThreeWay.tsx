@@ -26,9 +26,9 @@ export function isThreeWayLineup(lines: SportSelection[]): lines is [SportSelect
 
 type ThreeColMeta = {
   line: SportSelection;
-  /** Short header (team name or "X"). */
+  /** Top-left row: fixed outcome index ("1", "X", or "2"). */
   headline: string;
-  /** Optional second line (e.g. outcome label from CMS). */
+  /** Centered second line: parsed team name when available, else selection label. */
   caption?: string;
 };
 
@@ -39,10 +39,12 @@ function buildThreeColMeta(
   const [homeLine, drawLine, awayLine] = lines;
   const { home, away } = parseEventTeams(eventName);
 
-  const col0: ThreeColMeta =
-    home !== null
-      ? { line: homeLine, headline: home, caption: homeLine.label.trim() || undefined }
-      : { line: homeLine, headline: homeLine.label.trim() || "1" };
+  /** Top row is fixed 1 · X · 2 so it never repeats the outcome label line below. */
+  const col0: ThreeColMeta = {
+    line: homeLine,
+    headline: "1",
+    caption: (home ?? homeLine.label.trim()) || undefined,
+  };
 
   const col1: ThreeColMeta = {
     line: drawLine,
@@ -50,10 +52,11 @@ function buildThreeColMeta(
     caption: drawLine.label.trim() || undefined,
   };
 
-  const col2: ThreeColMeta =
-    away !== null
-      ? { line: awayLine, headline: away, caption: awayLine.label.trim() || undefined }
-      : { line: awayLine, headline: awayLine.label.trim() || "2" };
+  const col2: ThreeColMeta = {
+    line: awayLine,
+    headline: "2",
+    caption: (away ?? awayLine.label.trim()) || undefined,
+  };
 
   return [col0, col1, col2];
 }

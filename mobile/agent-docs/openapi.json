@@ -3,7 +3,7 @@
   "info": {
     "title": "Delphi client — API gateway surfaces",
     "version": "1.0.0",
-    "description": "Machine-oriented OpenAPI for **AI agents only**. Not exposed to end-user browsers without operator credentials.\n\nServed from **`GET /api/openapi.json`** or alias **`GET /api/agent/openapi.json`** when the host sets **`WEB_AGENT_OPENAPI_SECRET`**; send the same value as **`X-Agent-OpenAPI-Secret`** or **`Authorization: Bearer`**. If the secret is not configured on the host, these URLs respond **404** (no document for casual visitors).\n\n**Envelopes**\n- Most catalog / mall / bet JSON: `{ data, errorCode, message, _req_id }` (numeric `errorCode`, `0` = success).\n- User-agg auth: `{ errorCode, message?, data? }` with `errorCode === 0` on success.\n\n**Auth**\n- Mall-agg (products, mall orders, checkout, points): `Authorization: Bearer <access_token>`.\n- Bet orders / place / points: `X-User-Access-Token: <access_token>` (raw JWT).\n- Bet catalog GETs (games, markets, selections): typically no user header."
+    "description": "Machine-oriented OpenAPI for **AI agents only**. Not exposed to end-user browsers without operator credentials.\n\nServed from **`GET /api/openapi.json`** or alias **`GET /api/agent/openapi.json`** when the host sets **`WEB_AGENT_OPENAPI_SECRET`**; send the same value as **`X-Agent-OpenAPI-Secret`** or **`Authorization: Bearer`**. If the secret is not configured on the host, these URLs respond **404** (no document for casual visitors).\n\n**Envelopes**\n- Most catalog / mall / bet JSON: `{ data, errorCode, message, _req_id }` (numeric `errorCode`, `0` = success).\n- User-agg auth: `{ errorCode, message?, data? }` with `errorCode === 0` on success.\n\n**Auth**\n- Mall-agg and authenticated bet routes (orders, place, points, snowflake, leaderboard): `Authorization: Bearer <access_token>` (JWT from login; gateway may rewrite for downstream).\n- Bet catalog GETs (games, markets, selections): typically no user header."
   },
   "servers": [
     {
@@ -505,7 +505,7 @@
     "/api/bet/orders": {
       "get": {
         "tags": ["Bet"],
-        "security": [{ "BetUserAccessToken": [] }],
+        "security": [{ "MallBearer": [] }],
         "summary": "List user's bet orders",
         "parameters": [
           { "name": "page", "in": "query", "schema": { "type": "integer" } },
@@ -519,7 +519,7 @@
       },
       "post": {
         "tags": ["Bet"],
-        "security": [{ "BetUserAccessToken": [] }],
+        "security": [{ "MallBearer": [] }],
         "deprecated": true,
         "summary": "Create draft bet order only (legacy; prefer POST /api/bet/place)",
         "requestBody": {
@@ -542,7 +542,7 @@
     "/api/bet/orders/{orderId}": {
       "get": {
         "tags": ["Bet"],
-        "security": [{ "BetUserAccessToken": [] }],
+        "security": [{ "MallBearer": [] }],
         "summary": "Bet order detail",
         "parameters": [{ "name": "orderId", "in": "path", "required": true, "schema": { "type": "integer" } }],
         "responses": {
@@ -556,7 +556,7 @@
     "/api/bet/checkout": {
       "post": {
         "tags": ["Bet"],
-        "security": [{ "BetUserAccessToken": [] }],
+        "security": [{ "MallBearer": [] }],
         "deprecated": true,
         "summary": "Settle draft bet order (legacy; prefer POST /api/bet/place)",
         "requestBody": {
@@ -583,7 +583,7 @@
     "/api/bet/place": {
       "post": {
         "tags": ["Bet"],
-        "security": [{ "BetUserAccessToken": [] }],
+        "security": [{ "MallBearer": [] }],
         "summary": "Place bet (single step: create + settle)",
         "description": "Replaces legacy `POST /api/bet/orders` followed by `POST /api/bet/checkout`. Debit stake server-side atomically.",
         "requestBody": {
@@ -606,7 +606,7 @@
     "/api/bet/points": {
       "get": {
         "tags": ["Bet"],
-        "security": [{ "BetUserAccessToken": [] }],
+        "security": [{ "MallBearer": [] }],
         "summary": "Bet wallet points balance",
         "responses": {
           "200": {
@@ -648,13 +648,7 @@
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "JWT",
-        "description": "Bearer token from `POST /api/user-agg/login`"
-      },
-      "BetUserAccessToken": {
-        "type": "apiKey",
-        "in": "header",
-        "name": "X-User-Access-Token",
-        "description": "Raw JWT (`access_token` from login)."
+        "description": "JWT `access_token` from `POST /api/user-agg/login`; used for mall-agg and authenticated bet routes on the gateway."
       }
     },
     "schemas": {
