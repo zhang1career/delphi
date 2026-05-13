@@ -1,5 +1,6 @@
 import { Tabs } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { Platform } from "react-native";
 import { BetTabBar } from "@/lib/navigation/BetTabBar";
 import { features } from "@/lib/config";
 
@@ -56,6 +57,17 @@ export default function TabLayout() {
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person-circle-outline" color={color} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="about"
+        options={{
+          title: "About",
+          headerShown: false,
+          href: Platform.OS === "web" ? undefined : null,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="information-circle-outline" color={color} size={size} />
           ),
         }}
       />

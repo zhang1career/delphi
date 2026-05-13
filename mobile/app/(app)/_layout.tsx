@@ -1,5 +1,4 @@
 import { Stack } from "expo-router";
-import { Platform } from "react-native";
 import { useTokenRefreshInterval } from "@/lib/auth/useTokenRefreshInterval";
 
 export default function AppGroupLayout() {
@@ -52,18 +51,7 @@ export default function AppGroupLayout() {
           headerTintColor: "#f1f5f9",
         }}
       />
-      {Platform.OS === "web" && (
-        <Stack.Screen
-          name="readme"
-          options={{
-            headerShown: true,
-            title: "Readme",
-            headerBackTitle: "Back",
-            headerStyle: { backgroundColor: "#0f172a" },
-            headerTintColor: "#f1f5f9",
-          }}
-        />
-      )}
+      <Stack.Screen name="readme" options={{ headerShown: false }} />
       <Stack.Screen
         name="order/[id]"
         options={{
