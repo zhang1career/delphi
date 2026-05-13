@@ -1,6 +1,8 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { BottomTabBar, BottomTabBarHeightCallbackContext } from "@react-navigation/bottom-tabs";
+import type { Href } from "expo-router";
+import { Link } from "expo-router";
 import * as React from "react";
 import {
   Platform,
@@ -25,11 +27,18 @@ type TabRouteMeta = {
   index: number;
 };
 
+function tabHrefForRouteName(routeName: string): Href {
+  if (routeName === "index") {
+    return "/(app)/(tabs)";
+  }
+  return `/(app)/(tabs)/${routeName}` as Href;
+}
+
 /**
  * Native: bottom tabs. Web: **one horizontal row** — primary tabs scroll if needed; About stays at the trailing edge.
  */
 export function BetTabBar(props: BottomTabBarProps): React.ReactElement {
-  const { state, descriptors, navigation } = props;
+  const { state, descriptors } = props;
 
   const window = useWindowDimensions();
   const safe = useSafeAreaInsets();
@@ -75,27 +84,16 @@ export function BetTabBar(props: BottomTabBarProps): React.ReactElement {
       iconFn = fallbackIcon(route.name as string);
     }
 
-    const onPress = (): void => {
-      const ev = navigation.emit({
-        type: "tabPress",
-        target: route.key,
-        canPreventDefault: true,
-      });
-      if (!ev.defaultPrevented && !isFocused) {
-        navigation.navigate(route.name);
-      }
-    };
-
     const iconFnTyped = iconFn as (p: {
       color: string;
       focused: boolean;
       size: number;
     }) => React.ReactNode;
 
-    return (
+    const tabHref = tabHrefForRouteName(route.name as string);
+
+    const chip = (
       <Pressable
-        key={route.key}
-        onPress={onPress}
         accessibilityRole="tab"
         accessibilityLabel={typeof labelRaw === "string" ? labelRaw : undefined}
         accessibilityState={isFocused ? { selected: true } : {}}
@@ -106,6 +104,12 @@ export function BetTabBar(props: BottomTabBarProps): React.ReactElement {
           {label}
         </Text>
       </Pressable>
+    );
+
+    return (
+      <Link key={route.key} href={tabHref} asChild>
+        {chip}
+      </Link>
     );
   };
 
@@ -158,7 +162,7 @@ function fallbackIcon(
     if (routeName === "cart") {
       return <Ionicons name="cart-outline" size={size} color={color} />;
     }
-    if (routeName === "orders") {
+    if (routeName === "predictions") {
       return <Ionicons name="receipt-outline" size={size} color={color} />;
     }
     if (routeName === "about") {

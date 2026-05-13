@@ -44,7 +44,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="orders"
+        name="predictions"
         options={{
           title: t("tabs.predictions"),
           tabBarLabel: t("tabs.predictions"),

@@ -103,5 +103,6 @@ SCENARIO_S4_HISTORY_AND_POINTS
   payloads; mint a new E08 when starting a new place attempt per R1.
 
 ## A. Reference
+readme (its content shown in the current page): GET /delphi/readme
 user-agg API documentation: GET /api/user-agg/openapi
 bet-agg API documentation: GET /api/bet/openapi

@@ -25,7 +25,7 @@ function formatTime(sec: number): string {
   }
 }
 
-export default function OrdersScreen() {
+export default function PredictionsScreen() {
   const router = useRouter();
   const { t } = useLocale();
   const insets = useSafeAreaInsets();
@@ -64,7 +64,7 @@ export default function OrdersScreen() {
         <Text className="text-xl font-bold text-slate-100 mb-3">{t("orders.title")}</Text>
         <Text className="text-slate-400 mb-6">{t("orders.signInPrompt")}</Text>
         <Pressable
-          onPress={() => router.push(buildLoginHref("/(app)/(tabs)/orders"))}
+          onPress={() => router.push(buildLoginHref("/(app)/(tabs)/predictions"))}
           className="bg-brand py-3.5 rounded-xl items-center active:opacity-90"
         >
           <Text className="text-white font-semibold text-base">{t("orders.signIn")}</Text>
