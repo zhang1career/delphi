@@ -5,12 +5,14 @@ import * as React from "react";
 import {
   Platform,
   Pressable,
+  ScrollView,
   Text,
   View,
   useWindowDimensions,
   type LayoutChangeEvent,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { WebLocaleSwitcher } from "@/components/app/WebLocaleSwitcher";
 import { features } from "@/lib/config";
 
 type TabHrefOptions = {
@@ -24,8 +26,7 @@ type TabRouteMeta = {
 };
 
 /**
- * Native: standard bottom tabs. Web: horizontal top navigation for the same tab routes;
- * **About** is pinned to the trailing edge on wide viewports.
+ * Native: bottom tabs. Web: **one horizontal row** — primary tabs scroll if needed; About stays at the trailing edge.
  */
 export function BetTabBar(props: BottomTabBarProps): React.ReactElement {
   const { state, descriptors, navigation } = props;
@@ -96,8 +97,9 @@ export function BetTabBar(props: BottomTabBarProps): React.ReactElement {
         key={route.key}
         onPress={onPress}
         accessibilityRole="tab"
+        accessibilityLabel={typeof labelRaw === "string" ? labelRaw : undefined}
         accessibilityState={isFocused ? { selected: true } : {}}
-        className={`flex-row items-center gap-1.5 px-3 py-2 rounded-xl ${isFocused ? "bg-[#1e293b]" : ""}`}
+        className={`flex-row items-center gap-1.5 px-3 py-2 rounded-xl shrink-0 ${isFocused ? "bg-[#1e293b]" : ""}`}
       >
         {iconFnTyped({ color, focused: isFocused, size: 20 })}
         <Text className="text-sm font-semibold" style={{ color }}>
@@ -123,15 +125,24 @@ export function BetTabBar(props: BottomTabBarProps): React.ReactElement {
       }}
       onLayout={handleLayout}
     >
-      <View className="w-full flex-row flex-wrap items-center gap-y-2 justify-between">
-        <View className="flex-row flex-wrap gap-2 items-center flex-1 min-w-0 justify-center md:justify-start">
+      <View style={{ flexDirection: "row", flexWrap: "nowrap", alignItems: "center", width: "100%" }}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ flex: 1, minWidth: 0 }}
+          contentContainerStyle={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 8,
+            paddingVertical: 2,
+          }}
+        >
           {mainMetas.map(({ route, index }) => renderChip(route, index))}
-        </View>
+        </ScrollView>
         {aboutMeta ? (
-          <View className="flex-row items-center shrink-0 w-full justify-end md:w-auto md:justify-end pr-0.5">
-            {renderChip(aboutMeta.route, aboutMeta.index)}
-          </View>
+          <View style={{ flexShrink: 0, marginLeft: 12 }}>{renderChip(aboutMeta.route, aboutMeta.index)}</View>
         ) : null}
+        <WebLocaleSwitcher />
       </View>
     </View>
   );

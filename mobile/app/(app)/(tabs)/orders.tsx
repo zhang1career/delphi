@@ -9,11 +9,12 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useWebTopTabBarInset } from "@/lib/navigation/useWebTopTabBarInset";
 import { useOrdersInfiniteQuery } from "@/features/orders/hooks";
 import { betOrderStatusLabel } from "@/lib/api/betTypes";
 import { features } from "@/lib/config";
 import { buildLoginHref } from "@/lib/auth/postLoginReturn";
+import { useLocale } from "@/i18n/LocaleProvider";
+import { useWebTopTabBarInset } from "@/lib/navigation/useWebTopTabBarInset";
 import { useAuthStore } from "@/stores/authStore";
 
 function formatTime(sec: number): string {
@@ -26,6 +27,7 @@ function formatTime(sec: number): string {
 
 export default function OrdersScreen() {
   const router = useRouter();
+  const { t } = useLocale();
   const insets = useSafeAreaInsets();
   const webNavTop = useWebTopTabBarInset();
   const token = useAuthStore((s) => s.accessToken);
@@ -48,7 +50,7 @@ export default function OrdersScreen() {
         className="flex-1 items-center justify-center px-6"
         style={{ paddingTop: Platform.OS === "web" ? webNavTop : insets.top }}
       >
-        <Text className="text-slate-300 text-center">Predictions list is off in app config.</Text>
+        <Text className="text-slate-300 text-center">{t("orders.predictionsOff")}</Text>
       </View>
     );
   }
@@ -59,13 +61,13 @@ export default function OrdersScreen() {
         className="flex-1 bg-surface px-6 justify-center"
         style={{ paddingTop: Platform.OS === "web" ? webNavTop + 8 : insets.top + 8 }}
       >
-        <Text className="text-xl font-bold text-slate-100 mb-3">Predictions</Text>
-        <Text className="text-slate-400 mb-6">Sign in to see your submitted predictions.</Text>
+        <Text className="text-xl font-bold text-slate-100 mb-3">{t("orders.title")}</Text>
+        <Text className="text-slate-400 mb-6">{t("orders.signInPrompt")}</Text>
         <Pressable
           onPress={() => router.push(buildLoginHref("/(app)/(tabs)/orders"))}
           className="bg-brand py-3.5 rounded-xl items-center active:opacity-90"
         >
-          <Text className="text-white font-semibold text-base">Sign in</Text>
+          <Text className="text-white font-semibold text-base">{t("orders.signIn")}</Text>
         </Pressable>
       </View>
     );
@@ -76,7 +78,7 @@ export default function OrdersScreen() {
       className="flex-1 bg-surface"
       style={{ paddingTop: Platform.OS === "web" ? webNavTop + 8 : insets.top + 8 }}
     >
-      <Text className="text-xl font-bold text-slate-100 px-4 mb-2">Predictions</Text>
+      <Text className="text-xl font-bold text-slate-100 px-4 mb-2">{t("orders.title")}</Text>
       <FlatList
         data={rows}
         keyExtractor={(item) => String(item.id)}
@@ -90,7 +92,7 @@ export default function OrdersScreen() {
         ListHeaderComponent={
           isError ? (
             <Text className="text-red-400 px-4 mb-2">
-              {error instanceof Error ? error.message : "Could not load predictions."}
+              {error instanceof Error ? error.message : t("orders.loadError")}
             </Text>
           ) : null
         }
@@ -107,7 +109,7 @@ export default function OrdersScreen() {
               <ActivityIndicator color="#a5b4fc" />
             </View>
           ) : (
-            <Text className="text-slate-500 px-4">No predictions yet.</Text>
+            <Text className="text-slate-500 px-4">{t("orders.empty")}</Text>
           )
         }
         contentContainerStyle={{ paddingBottom: 32, paddingHorizontal: 16 }}

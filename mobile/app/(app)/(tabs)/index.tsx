@@ -1,7 +1,6 @@
 import { useRouter } from "expo-router";
 import { Platform, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useWebTopTabBarInset } from "@/lib/navigation/useWebTopTabBarInset";
 import type { BannerSlide } from "@/components/app/BannerCarousel";
 import { BannerCarousel } from "@/components/app/BannerCarousel";
 import { MarketsListView } from "@/features/bet/MarketsListView";
@@ -9,12 +8,15 @@ import { useBetEventsInfiniteQuery } from "@/features/bet/hooks";
 import { BET_GAMES_GROUP_CODE_FIFA_2026 } from "@/lib/api/betCatalogApi";
 import { betGameAssetCdnUri } from "@/lib/betCdn";
 import { features } from "@/lib/config";
+import { useLocale } from "@/i18n/LocaleProvider";
+import { useWebTopTabBarInset } from "@/lib/navigation/useWebTopTabBarInset";
 
 /** `GET /api/bet/games?per_page=…` for banner carousel; caps slide count. */
 const BET_HOME_BANNER_GAMES_PER_PAGE = 5;
 
 export default function BetHomeScreen() {
   const router = useRouter();
+  const { t } = useLocale();
   const insets = useSafeAreaInsets();
   const webNavTop = useWebTopTabBarInset();
   const eventsQ = useBetEventsInfiniteQuery(BET_HOME_BANNER_GAMES_PER_PAGE, {
@@ -50,7 +52,7 @@ export default function BetHomeScreen() {
         className="flex-1 items-center justify-center px-6"
         style={{ paddingTop: Platform.OS === "web" ? webNavTop : insets.top }}
       >
-        <Text className="text-slate-300 text-center">Catalog is off in app config features.commerce.</Text>
+        <Text className="text-slate-300 text-center">{t("home.catalogOff")}</Text>
       </View>
     );
   }
@@ -60,7 +62,7 @@ export default function BetHomeScreen() {
       className="flex-1 bg-surface"
       style={{ paddingTop: Platform.OS === "web" ? webNavTop + 8 : insets.top + 8 }}
     >
-      <Text className="text-xl font-bold text-slate-100 px-4 mb-2">Events</Text>
+      <Text className="text-xl font-bold text-slate-100 px-4 mb-2">{t("home.events")}</Text>
       <MarketsListView
         listHeader={
           <>
@@ -78,10 +80,10 @@ export default function BetHomeScreen() {
             />
             {eventsQ.isError ? (
               <Text className="text-red-400 px-4 mb-2">
-                {eventsQ.error instanceof Error ? eventsQ.error.message : "Could not load games."}
+                {eventsQ.error instanceof Error ? eventsQ.error.message : t("home.loadGamesError")}
               </Text>
             ) : null}
-            <Text className="text-xl font-bold text-slate-100 px-4 mb-2">Markets</Text>
+            <Text className="text-xl font-bold text-slate-100 px-4 mb-2">{t("home.markets")}</Text>
           </>
         }
         marketsHeading={null}

@@ -1,8 +1,17 @@
 import { Stack } from "expo-router";
+import { useLocale } from "@/i18n/LocaleProvider";
 import { useTokenRefreshInterval } from "@/lib/auth/useTokenRefreshInterval";
 
 export default function AppGroupLayout() {
+  const { t } = useLocale();
   useTokenRefreshInterval();
+
+  const sharedHeader = {
+    headerStyle: { backgroundColor: "#0f172a" },
+    headerTintColor: "#f1f5f9",
+    headerBackTitle: t("nav.back"),
+  };
+
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#0f172a" } }}>
       <Stack.Screen name="(tabs)" />
@@ -11,44 +20,40 @@ export default function AppGroupLayout() {
         name="event/[id]"
         options={{
           headerShown: true,
-          title: "Event",
-          headerBackTitle: "Back",
-          headerStyle: { backgroundColor: "#0f172a" },
-          headerTintColor: "#f1f5f9",
+          title: t("screens.event"),
+          ...sharedHeader,
         }}
       />
       <Stack.Screen
         name="markets/index"
         options={{
           headerShown: true,
-          title: "Predictions",
-          headerBackTitle: "Back",
-          headerStyle: { backgroundColor: "#0f172a" },
-          headerTintColor: "#f1f5f9",
+          title: t("screens.predictions"),
+          ...sharedHeader,
         }}
       />
       <Stack.Screen
         name="markets/[id]"
         options={{
           headerShown: true,
-          headerBackTitle: "Back",
-          title: "Pick outcome",
-          headerStyle: { backgroundColor: "#0f172a" },
-          headerTintColor: "#f1f5f9",
+          title: t("screens.pickOutcome"),
+          ...sharedHeader,
         }}
       />
       <Stack.Screen
         name="product/[id]"
-        options={{ headerShown: true, title: "Product", headerBackTitle: "Back" }}
+        options={{
+          headerShown: true,
+          title: t("screens.product"),
+          headerBackTitle: t("nav.back"),
+        }}
       />
       <Stack.Screen
         name="leaderboard"
         options={{
           headerShown: true,
-          title: "Leaderboard",
-          headerBackTitle: "Back",
-          headerStyle: { backgroundColor: "#0f172a" },
-          headerTintColor: "#f1f5f9",
+          title: t("screens.leaderboard"),
+          ...sharedHeader,
         }}
       />
       <Stack.Screen name="readme" options={{ headerShown: false }} />
@@ -56,16 +61,18 @@ export default function AppGroupLayout() {
         name="order/[id]"
         options={{
           headerShown: true,
-          title: "Prediction",
-          headerBackTitle: "Back",
-          headerStyle: { backgroundColor: "#0f172a" },
-          headerTintColor: "#f1f5f9",
+          title: t("screens.prediction"),
           headerTitleStyle: { fontWeight: "600" },
+          ...sharedHeader,
         }}
       />
       <Stack.Screen
         name="checkout"
-        options={{ headerShown: true, title: "Checkout", headerBackTitle: "Back" }}
+        options={{
+          headerShown: true,
+          title: t("screens.checkout"),
+          headerBackTitle: t("nav.back"),
+        }}
       />
     </Stack>
   );

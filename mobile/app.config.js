@@ -91,6 +91,7 @@ module.exports = {
       : {}),
     plugins: [
       "expo-router",
+      "expo-localization",
       "expo-secure-store",
       "./plugins/withIosEnvSyncPodfile.js",
       ["./plugins/withIosAtsInsecureHttp.js", { domains: parseIosAtsInsecureHttpDomains() }],

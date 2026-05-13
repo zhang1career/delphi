@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MarketsListView } from "@/features/bet/MarketsListView";
 import { betGameAssetCdnUri } from "@/lib/betCdn";
 import { features } from "@/lib/config";
+import { useLocale } from "@/i18n/LocaleProvider";
 
 function firstParam(v: string | string[] | undefined): string | undefined {
   if (v === undefined) {
@@ -17,6 +18,7 @@ function firstParam(v: string | string[] | undefined): string | undefined {
 export default function MarketsScreen() {
   const router = useRouter();
   const navigation = useNavigation();
+  const { t, locale } = useLocale();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
     game_id?: string | string[];
@@ -41,18 +43,18 @@ export default function MarketsScreen() {
   }, [mainMediaRaw]);
 
   useEffect(() => {
-    const t = titleParam?.trim();
-    if (t) {
-      navigation.setOptions({ title: t });
+    const titleTrim = titleParam?.trim();
+    if (titleTrim) {
+      navigation.setOptions({ title: titleTrim });
     } else {
-      navigation.setOptions({ title: "Predictions" });
+      navigation.setOptions({ title: t("screens.predictions") });
     }
-  }, [navigation, titleParam]);
+  }, [navigation, titleParam, t, locale]);
 
   if (!features.commerce) {
     return (
       <View className="flex-1 items-center justify-center px-6" style={{ paddingTop: insets.top }}>
-        <Text className="text-slate-300 text-center">Catalog is off.</Text>
+        <Text className="text-slate-300 text-center">{t("markets.catalogOff")}</Text>
       </View>
     );
   }

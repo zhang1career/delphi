@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import { useLocale } from "@/i18n/LocaleProvider";
 import { fetchDeployReadmeText } from "@/lib/deployReadme";
 
 type Props = {
@@ -9,6 +10,7 @@ type Props = {
 
 export function DeployReadmePanel(props: Props) {
   const { topPaddingPx } = props;
+  const { t } = useLocale();
   const [body, setBody] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -53,10 +55,10 @@ export function DeployReadmePanel(props: Props) {
   if (errorMessage) {
     return (
       <View className="flex-1 bg-surface px-4" style={{ paddingTop: topPaddingPx }}>
-        <Text className="text-slate-100 mb-2">Could not load readme</Text>
+        <Text className="text-slate-100 mb-2">{t("deployReadme.loadError")}</Text>
         <Text className="text-slate-400 mb-6">{errorMessage}</Text>
         <Pressable onPress={retry} className="self-start py-2" hitSlop={8}>
-          <Text className="text-indigo-400 font-medium">Retry</Text>
+          <Text className="text-indigo-400 font-medium">{t("deployReadme.retry")}</Text>
         </Pressable>
       </View>
     );

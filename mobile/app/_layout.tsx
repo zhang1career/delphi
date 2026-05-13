@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Platform, type ViewStyle } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { LocaleProvider } from "@/i18n/LocaleProvider";
 import { AuthHydrationGate } from "@/lib/auth/AuthHydrationGate";
 import { PostLoginReturnTracker } from "@/lib/auth/PostLoginReturnTracker";
 import { ToastProvider } from "@/lib/notifications/toast";
@@ -61,11 +62,12 @@ export default function RootLayout() {
       }}
     >
       <SafeAreaProvider>
-        <QueryClientProvider client={queryClient}>
-          <ToastProvider>
-            <AuthHydrationGate>
-              <PostLoginReturnTracker />
-              <Stack
+        <LocaleProvider>
+          <QueryClientProvider client={queryClient}>
+            <ToastProvider>
+              <AuthHydrationGate>
+                <PostLoginReturnTracker />
+                <Stack
                 screenOptions={{
                   headerStyle: { backgroundColor: "#0f172a" },
                   headerTintColor: "#f1f5f9",
@@ -75,10 +77,11 @@ export default function RootLayout() {
               >
                 <Stack.Screen name="(auth)" options={{ title: "" }} />
                 <Stack.Screen name="(app)" options={{ headerShown: false }} />
-              </Stack>
-            </AuthHydrationGate>
-          </ToastProvider>
-        </QueryClientProvider>
+                </Stack>
+              </AuthHydrationGate>
+            </ToastProvider>
+          </QueryClientProvider>
+        </LocaleProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

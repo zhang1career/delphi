@@ -1,6 +1,11 @@
+import { Platform } from "react-native";
 import { Redirect } from "expo-router";
+import { AboutDocumentationScreen } from "@/components/app/AboutDocumentationScreen";
 
-/** About tab is web-only (`href: null` on native); this file satisfies Metro’s platform pair. */
-export default function AboutNativeFallback() {
-  return <Redirect href="/(app)/(tabs)/profile" />;
+/** Web: full documentation tab. Native: tab is hidden (`href: null`); this is a safe fallback. */
+export default function AboutScreen() {
+  if (Platform.OS !== "web") {
+    return <Redirect href="/(app)/(tabs)/profile" />;
+  }
+  return <AboutDocumentationScreen />;
 }

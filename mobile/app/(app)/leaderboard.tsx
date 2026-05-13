@@ -11,11 +11,13 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBetLeaderboardInfiniteQuery } from "@/features/bet/hooks";
 import { buildLoginHref } from "@/lib/auth/postLoginReturn";
-import { useAuthStore } from "@/stores/authStore";
+import { useLocale } from "@/i18n/LocaleProvider";
 import { useWebTopTabBarInset } from "@/lib/navigation/useWebTopTabBarInset";
+import { useAuthStore } from "@/stores/authStore";
 
 export default function LeaderboardScreen() {
   const router = useRouter();
+  const { t } = useLocale();
   const insets = useSafeAreaInsets();
   const webNavTop = useWebTopTabBarInset();
   const token = useAuthStore((s) => s.accessToken);
@@ -40,13 +42,13 @@ export default function LeaderboardScreen() {
         className="flex-1 bg-surface px-6 justify-center"
         style={{ paddingTop: Platform.OS === "web" ? webNavTop + 8 : insets.top + 8 }}
       >
-        <Text className="text-xl font-bold text-slate-100 mb-3">Leaderboard</Text>
-        <Text className="text-slate-400 mb-6">Sign in to view reputation rankings.</Text>
+        <Text className="text-xl font-bold text-slate-100 mb-3">{t("leaderboard.title")}</Text>
+        <Text className="text-slate-400 mb-6">{t("leaderboard.signInPrompt")}</Text>
         <Pressable
           onPress={() => router.push(buildLoginHref("/(app)/leaderboard"))}
           className="bg-brand py-3.5 rounded-xl items-center active:opacity-90"
         >
-          <Text className="text-white font-semibold text-base">Sign in</Text>
+          <Text className="text-white font-semibold text-base">{t("leaderboard.signIn")}</Text>
         </Pressable>
       </View>
     );
@@ -57,9 +59,7 @@ export default function LeaderboardScreen() {
       className="flex-1 bg-surface"
       style={{ paddingTop: Platform.OS === "web" ? webNavTop + 8 : insets.top + 8 }}
     >
-      <Text className="text-slate-500 text-xs px-4 mb-2">
-        Rankings reflect non-redeemable prediction reputation only.
-      </Text>
+      <Text className="text-slate-500 text-xs px-4 mb-2">{t("leaderboard.hint")}</Text>
       <FlatList
         data={rows}
         keyExtractor={(item) => `${item.rank}-${item.uid}`}
@@ -73,7 +73,7 @@ export default function LeaderboardScreen() {
         ListHeaderComponent={
           isError ? (
             <Text className="text-red-400 px-4 mb-2">
-              {error instanceof Error ? error.message : "Could not load leaderboard."}
+              {error instanceof Error ? error.message : t("leaderboard.loadError")}
             </Text>
           ) : null
         }
@@ -90,14 +90,16 @@ export default function LeaderboardScreen() {
               <ActivityIndicator color="#a5b4fc" />
             </View>
           ) : (
-            <Text className="text-slate-500 px-4">No rows yet.</Text>
+            <Text className="text-slate-500 px-4">{t("leaderboard.empty")}</Text>
           )
         }
         contentContainerStyle={{ paddingBottom: 32, paddingHorizontal: 16 }}
         renderItem={({ item }) => (
           <View className="bg-surface-card rounded-xl border border-surface-border p-4 mb-2 flex-row justify-between items-center">
             <Text className="text-slate-400 w-10 font-semibold">#{item.rank}</Text>
-            <Text className="text-slate-300 flex-1 text-sm">User {item.uid}</Text>
+            <Text className="text-slate-300 flex-1 text-sm">
+              {t("leaderboard.userPrefix")} {item.uid}
+            </Text>
             <Text className="text-slate-100 font-semibold">{item.score}</Text>
           </View>
         )}

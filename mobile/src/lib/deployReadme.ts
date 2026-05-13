@@ -15,13 +15,25 @@ export function deployReadmePublicBase(): string {
 export function deployReadmeFetchUrls(): string[] {
   const base = deployReadmePublicBase();
   const list: string[] = [];
+  const origin =
+    typeof window !== "undefined" && typeof window.location?.origin === "string"
+      ? window.location.origin
+      : "";
+
+  const pushBoth = (path: string): void => {
+    list.push(path);
+    if (origin) {
+      list.push(`${origin}${path}`);
+    }
+  };
+
   if (base) {
-    list.push(`${base}/readme`);
-    list.push(`${base}/readme.txt`);
-  } else {
-    list.push("/readme");
-    list.push("/readme.txt");
+    pushBoth(`${base}/readme`);
+    pushBoth(`${base}/readme.txt`);
   }
+  pushBoth("/readme");
+  pushBoth("/readme.txt");
+
   return [...new Set(list)];
 }
 

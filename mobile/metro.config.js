@@ -265,6 +265,49 @@ function serveDevGatewayProxy(req, res) {
 }
 
 /**
+ * Serves `public/readme.txt` at the same paths as production nginx (`/readme`, `{WEB_BASE_PATH}/readme`, etc.)
+ * so the About tab can `fetch` documentation during `expo start --web`.
+ *
+ * @param {import("http").IncomingMessage} req
+ * @param {import("http").ServerResponse} res
+ * @returns {boolean} true if the request was handled
+ */
+function servePublicDeployReadme(req, res) {
+  if ((req.method || "GET").toUpperCase() !== "GET") {
+    return false;
+  }
+
+  const pathOnly = (req.url ?? "").split("?", 1)[0];
+  const base = String(process.env.WEB_BASE_PATH ?? "")
+    .trim()
+    .replace(/\/$/, "");
+  /** @type {Set<string>} */
+  const paths = new Set(["/readme.txt", "/readme"]);
+  if (base) {
+    paths.add(`${base}/readme.txt`);
+    paths.add(`${base}/readme`);
+  }
+  if (!paths.has(pathOnly)) {
+    return false;
+  }
+
+  const filePath = path.join(__dirname, "public", "readme.txt");
+  fs.readFile(filePath, (err, buf) => {
+    if (err) {
+      res.statusCode = 404;
+      res.setHeader("Content-Type", "text/plain; charset=utf-8");
+      res.end("Documentation file missing (public/readme.txt).");
+      return;
+    }
+    res.statusCode = 200;
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    res.end(buf);
+  });
+  return true;
+}
+
+/**
  * `GET /api/openapi.json` and `GET /api/agent/openapi.json` — **agent only**.
  * Requires `WEB_AGENT_OPENAPI_SECRET` in `.env`; without it responds 404. Wrong/missing credential → 403.
  *
@@ -324,6 +367,9 @@ config.server = {
     return (req, res, next) => {
       const url = req.url ?? "";
       const pathOnly = url.split("?", 1)[0];
+      if (servePublicDeployReadme(req, res)) {
+        return;
+      }
       const agentOpenApiPaths = new Set(["/api/openapi.json", "/api/agent/openapi.json"]);
       if (agentOpenApiPaths.has(pathOnly)) {
         serveAgentOnlyOpenApiJson(req, res);

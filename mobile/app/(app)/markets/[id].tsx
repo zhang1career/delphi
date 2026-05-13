@@ -18,6 +18,7 @@ import type { SportSelection } from "@/lib/api/betTypes";
 import { isThreeWayLineup, MatchResultThreeWayRow } from "@/features/bet/MatchResultThreeWay";
 import { features } from "@/lib/config";
 import { buildLoginHref } from "@/lib/auth/postLoginReturn";
+import { useLocale } from "@/i18n/LocaleProvider";
 import { MallUnauthorizedRedirectError } from "@/lib/auth/mallSessionUnauthorized";
 import { useToast } from "@/lib/notifications/toast";
 import { useAuthStore } from "@/stores/authStore";
@@ -26,6 +27,7 @@ export default function MarketDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const navigation = useNavigation();
+  const { t } = useLocale();
   const toast = useToast();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
@@ -99,7 +101,7 @@ export default function MarketDetailScreen() {
   if (!features.commerce) {
     return (
       <View className="flex-1 items-center justify-center px-6">
-        <Text className="text-slate-300 text-center">Catalog is off.</Text>
+        <Text className="text-slate-300 text-center">{t("markets.catalogOff")}</Text>
       </View>
     );
   }
@@ -116,7 +118,7 @@ export default function MarketDetailScreen() {
     return (
       <View className="flex-1 bg-surface px-6 justify-center">
         <Text className="text-red-400 text-center">
-          {marketQ.error instanceof Error ? marketQ.error.message : "Could not load market."}
+          {marketQ.error instanceof Error ? marketQ.error.message : t("markets.loadMarketError")}
         </Text>
       </View>
     );
@@ -174,7 +176,7 @@ export default function MarketDetailScreen() {
             ))
           )}
           {lines.length === 0 ? (
-            <Text className="text-slate-500 px-4">No open selections for this market.</Text>
+            <Text className="text-slate-500 px-4">{t("markets.noOpenSelections")}</Text>
           ) : null}
         </View>
       </ScrollView>
@@ -185,7 +187,7 @@ export default function MarketDetailScreen() {
       >
         <View className={footerBarClass}>
           <Pressable
-            accessibilityLabel="Submit prediction"
+            accessibilityLabel={t("markets.submitPrediction")}
             disabled={submitBlocked}
             onPress={() => {
               if (!accessToken?.trim()) {
@@ -201,7 +203,7 @@ export default function MarketDetailScreen() {
             {mutate.isPending ? (
               <ActivityIndicator color="#f8fafc" />
             ) : (
-              <Text className="text-white font-semibold text-base">Submit prediction</Text>
+              <Text className="text-white font-semibold text-base">{t("markets.submitPrediction")}</Text>
             )}
           </Pressable>
         </View>
