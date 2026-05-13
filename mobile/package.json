@@ -10,7 +10,8 @@
     "archive-and-upload:ios": "bash ios/scripts/xcode-clean.sh && bash ios/scripts/prebuild.sh && bash ios/scripts/xcode-archive.sh && bash ios/scripts/xcode-upload.sh",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "export:web": "expo export --platform web --output-dir dist && node scripts/sync-web-export-readme.cjs dist"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.0.4",

@@ -68,6 +68,14 @@ export default function ProfileScreen() {
         className="mb-4"
         onPress={() => router.push("/(app)/leaderboard")}
       />
+      {Platform.OS === "web" && (
+        <Button
+          title="Deploy readme"
+          className="mb-4"
+          variant="ghost"
+          onPress={() => router.push("/(app)/readme")}
+        />
+      )}
       <Text className="text-slate-500 text-xs uppercase tracking-wide mb-2">Recipes</Text>
       <Button
         title="Commerce-only layout"
