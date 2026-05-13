@@ -26,6 +26,8 @@ export default function SignUpScreen() {
   const [verifyOpen, setVerifyOpen] = useState(false);
   /** Set when register returns `event_id` (success or pending); kept after closing the sheet so user can reopen. */
   const [pendingEventId, setPendingEventId] = useState<number | null>(null);
+  /** `access_token` from register / pending envelope; required for verify request Bearer. */
+  const [verifyAccessToken, setVerifyAccessToken] = useState<string | null>(null);
 
   const openVerifySheet = () => {
     if (pendingEventId == null) return;
@@ -58,7 +60,8 @@ export default function SignUpScreen() {
           }
           setSubmitting(true);
           try {
-            const { eventId } = await registerAccount({
+            setVerifyAccessToken(null);
+            const { eventId, session } = await registerAccount({
               username: username.trim(),
               password,
               email: emailTrim,
@@ -67,12 +70,14 @@ export default function SignUpScreen() {
               noticeTarget: emailTrim,
             });
             setPendingEventId(eventId);
+            setVerifyAccessToken(session?.accessToken ?? null);
             setVerifyOpen(true);
           } catch (e) {
             if (e instanceof PendingVerificationError) {
               const title = "Verification pending";
               if (e.eventId != null) {
                 setPendingEventId(e.eventId);
+                setVerifyAccessToken(e.accessToken ?? null);
                 Alert.alert(title, e.message, [
                   { text: "Later", style: "cancel" },
                   { text: "Enter code", onPress: () => setVerifyOpen(true) },
@@ -104,8 +109,13 @@ export default function SignUpScreen() {
           if (pendingEventId == null) {
             throw new Error("Registration session expired. Please sign up again.");
           }
-          const session = await verifyRegisterCode(pendingEventId, code);
+          const token = verifyAccessToken?.trim();
+          if (!token) {
+            throw new Error("Missing access token. Please sign up again to continue verification.");
+          }
+          const session = await verifyRegisterCode(pendingEventId, code, token);
           setPendingEventId(null);
+          setVerifyAccessToken(null);
           setVerifyOpen(false);
           setTimeout(() => {
             void (async () => {

@@ -20,6 +20,14 @@ export function optionalEventIdFromData(data: UserApiEnvelope["data"]): number |
   return typeof id === "number" ? id : undefined;
 }
 
+export function optionalAccessTokenFromData(data: UserApiEnvelope["data"]): string | undefined {
+  if (!data || typeof data !== "object") {
+    return undefined;
+  }
+  const t = (data as { access_token?: unknown }).access_token;
+  return typeof t === "string" && t.trim() ? t : undefined;
+}
+
 export function requireEventIdFromData(data: UserApiEnvelope["data"], missingMessage: string): number {
   const id = optionalEventIdFromData(data);
   if (id === undefined) {
