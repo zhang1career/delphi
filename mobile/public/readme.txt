@@ -7,25 +7,23 @@
 ## 1. OPENAPI_LOCATORS (resolve URLs; do not guess paths beyond {APP_HTTP_BASE})
 # If the gateway exposes one merged document, set both variables to that same URL.
 bet_agg_openapi_url:
-  {APP_HTTP_BASE}/api/openapi.json
+  {APP_HTTP_BASE}/api/bet/openapi
   (document that describes bet-agg /api/bet/* and any co-located public API)
 
 user_agg_openapi_url:
-  {APP_HTTP_BASE}/api/openapi.json
+  {APP_HTTP_BASE}/api/user-agg/openapi
   (document that describes user-agg /api/user-agg/*; may be the same file as
    bet_agg_openapi_url when the gateway publishes a merged spec)
 
 ## 2. AUTH_RULES
 public_endpoints:
-  No X-User-Access-Token header required for these delphi (bet-agg or user-agg) routes (see INDEX).
+  No Authorization header required for these delphi (bet-agg or user-agg) routes (see INDEX).
 
 authenticated_endpoints:
   Required header on every request to the listed delphi routes:
-    X-User-Access-Token: <access_token>
+    Authorization: Bearer <access_token>
   Rules:
     - Value is the raw JWT string from delphi login/refresh response.
-    - Do NOT prefix with "Bearer " (Authorization: Bearer is reserved for other
-      purposes in this stack).
 
 user_agg_auth:
   Follow user_agg_openapi.json for register/login request bodies and token
@@ -33,7 +31,7 @@ user_agg_auth:
 
 ## 3. ENDPOINT_INDEX (id | method | path | upstream | auth)
 # path is application-layer (prefix /api). upstream labels routing intent.
-# auth: public | user_jwt  (user_jwt => X-User-Access-Token on delphi)
+# auth: public | user_jwt  (user_jwt => Bearer token on delphi)
 
 E01 | GET    | /api/bet/games                      | bet-agg | public
 E02 | GET    | /api/bet/games/{game_id}            | bet-agg | public
@@ -63,7 +61,7 @@ R1. E08 before E09: call POST /api/bet/snowflake first; use returned snowflake
 R2. E06 or E07 must succeed before any user-agg user_jwt call (E08–E12) so the
     agent holds a valid access_token.
 R3. E07 (refresh): use on expiry or per product policy (e.g. at most once per
-    day); after refresh, use the new access_token for X-User-Access-Token.
+    day); after refresh, use the new access_token for Bearer token.
 
 ## 5. SCENARIOS (linear steps; pick one track)
 
@@ -83,8 +81,8 @@ SCENARIO_S3_FULL_SESSION_PLACE_ORDER
     1. If new user: E05. If existing user: skip E05.
     2. E06 (login) unless the session already has a valid token.
     3. When token near expiry: E07 instead of E06 where appropriate.
-    4. E08 with X-User-Access-Token set.
-    5. E09 with X-User-Access-Token and X-Request-Id from step 4 response.
+    4. E08 with Bearer token set.
+    5. E09 with Bearer token and X-Request-Id from step 4 response.
 
 SCENARIO_S4_HISTORY_AND_POINTS
   Goal: orders and personal reputation balance (requires login).
@@ -104,5 +102,3 @@ SCENARIO_S4_HISTORY_AND_POINTS
 
 ## A. Reference
 readme (its content shown in the current page): GET /delphi/readme
-user-agg API documentation: GET /api/user-agg/openapi
-bet-agg API documentation: GET /api/bet/openapi
