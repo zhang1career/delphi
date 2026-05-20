@@ -4,6 +4,11 @@
 - Replace {APP_HTTP_BASE} with the single application-layer origin the user
   configures for the agent (same host the browser uses for API calls).
 
+## DISCOVERY
+- GET {APP_HTTP_BASE}/robots.txt
+- GET {APP_HTTP_BASE}/.well-known/delphi.txt
+- GET {APP_HTTP_BASE}/delphi/readme
+
 ## 1. OPENAPI_LOCATORS (resolve URLs; do not guess paths beyond {APP_HTTP_BASE})
 # If the gateway exposes one merged document, set both variables to that same URL.
 bet_agg_openapi_url:
@@ -101,4 +106,5 @@ SCENARIO_S4_HISTORY_AND_POINTS
   payloads; mint a new E08 when starting a new place attempt per R1.
 
 ## A. Reference
-readme (its content shown in the current page): GET /delphi/readme
+DISCOVERY (this document; same text at all three URLs): see DISCOVERY section above.
+Application UI: GET {APP_HTTP_BASE}/delphi/
