@@ -42,13 +42,21 @@ function requiredEnv(name: string, value: string): string {
   return value;
 }
 
-/** API gateway behind nginx on port 80; origin omits default HTTP port. */
-function gatewayHttpOrigin(host: string): string {
+function isWebProduction(): boolean {
+  return (
+    Platform.OS === "web" &&
+    (typeof __DEV__ === "undefined" || __DEV__ === false)
+  );
+}
+
+/** API gateway behind nginx; native dev/prod uses HTTP (ATS exceptions). Web production uses HTTPS (mixed content). */
+function gatewayOrigin(host: string): string {
   const h = host.trim().replace(/\/$/, "");
   if (!h) {
     throw new Error("Empty config host");
   }
-  return `http://${h}`;
+  const scheme = isWebProduction() ? "https" : "http";
+  return `${scheme}://${h}`;
 }
 
 function isWebDevUsingMetroProxy(): boolean {
@@ -114,7 +122,7 @@ async function fetchConfigHost(): Promise<string> {
 
 async function createOrigins(): Promise<ServiceOrigins> {
   const host = await fetchConfigHost();
-  const gatewayBase = gatewayHttpOrigin(host);
+  const gatewayBase = gatewayOrigin(host);
   const cdnDist = requiredEnv("SF_CDN_DISTRIBUTION_ID", cdnDistributionId);
 
   const useGatewayProxy = shouldUseWebDevGatewayProxy(gatewayBase);

@@ -23,9 +23,15 @@ function readTrimmed(value: string | undefined): string {
   return (value ?? "").trim();
 }
 
-export const apiConfigPublicUrl = readTrimmed(extra.apiConfigPublicUrl);
-export const apiConfigPublicKey = readTrimmed(extra.apiConfigPublicKey);
-export const apiConfigAccessKey = readTrimmed(extra.apiConfigAccessKey);
+export const apiConfigPublicUrl = readTrimmed(
+  process.env.EXPO_PUBLIC_API_CONFIG_PUBLIC_URL ?? extra.apiConfigPublicUrl,
+);
+export const apiConfigPublicKey = readTrimmed(
+  process.env.EXPO_PUBLIC_API_CONFIG_PUBLIC_KEY ?? extra.apiConfigPublicKey,
+);
+export const apiConfigAccessKey = readTrimmed(
+  process.env.EXPO_PUBLIC_API_CONFIG_ACCESS_KEY ?? extra.apiConfigAccessKey,
+);
 export const cdnDistributionId = readTrimmed(extra.cdnDistributionId);
 export const snowflakeAccessKey = readTrimmed(
   extra.snowflakeAccessKey ?? process.env.EXPO_PUBLIC_SF_SNOWFLAKE_ACCESS_KEY,

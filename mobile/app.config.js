@@ -24,10 +24,22 @@ function envTrim(name) {
   return String(v).trim();
 }
 
-/** Metro web bundles `EXPO_PUBLIC_*` into JS; `APP_MANIFEST` drops `extra` keys that are undefined at stringify time. Mirror Snowflake here so static web matches `.env`. */
+/** Metro web bundles `EXPO_PUBLIC_*` into JS; `APP_MANIFEST` drops `extra` keys that are undefined at stringify time. Mirror env here so static web matches `.env` even when Metro reuses a stale manifest cache. */
 const SF_SNOWFLAKE_ACCESS_KEY_VALUE = envTrim("SF_SNOWFLAKE_ACCESS_KEY");
 if (SF_SNOWFLAKE_ACCESS_KEY_VALUE) {
   process.env.EXPO_PUBLIC_SF_SNOWFLAKE_ACCESS_KEY = SF_SNOWFLAKE_ACCESS_KEY_VALUE;
+}
+const API_CONFIG_PUBLIC_URL_VALUE = envTrim("API_CONFIG_PUBLIC_URL");
+if (API_CONFIG_PUBLIC_URL_VALUE) {
+  process.env.EXPO_PUBLIC_API_CONFIG_PUBLIC_URL = API_CONFIG_PUBLIC_URL_VALUE;
+}
+const API_CONFIG_PUBLIC_KEY_VALUE = envTrim("API_CONFIG_PUBLIC_KEY");
+if (API_CONFIG_PUBLIC_KEY_VALUE) {
+  process.env.EXPO_PUBLIC_API_CONFIG_PUBLIC_KEY = API_CONFIG_PUBLIC_KEY_VALUE;
+}
+const API_CONFIG_ACCESS_KEY_VALUE = envTrim("API_CONFIG_ACCESS_KEY");
+if (API_CONFIG_ACCESS_KEY_VALUE) {
+  process.env.EXPO_PUBLIC_API_CONFIG_ACCESS_KEY = API_CONFIG_ACCESS_KEY_VALUE;
 }
 
 /** Comma-separated hostnames/IPs for NSExceptionDomains (cleartext HTTP); see docs/TODO.md. */

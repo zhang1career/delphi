@@ -1,4 +1,4 @@
-/** Appended to API gateway origin (`http://{config host}`, port 80 via reverse proxy). */
+/** Appended to API gateway origin (`{scheme}://{config host}`; Web production uses HTTPS). */
 export const USER_LOGIN_PATH = "/api/user-agg/login";
 
 export const USER_REGISTER_PATH = "/api/user-agg/register";
