@@ -4,8 +4,10 @@ import {
   apiConfigPublicUrl,
 } from "@/lib/config";
 import { fetchWithHttpDebug } from "@/lib/httpDebug";
+import { useAuthStore } from "@/stores/authStore";
 import { Platform } from "react-native";
 import { WEB_DEV_CONFIG_PROXY_PATH } from "../../../devConfigProxyPath.js";
+import { WEB_DEV_CONFIG_PRI_PROXY_PATH } from "../../../devConfigPriProxyPath.js";
 
 /** Config center entry key for app runtime data (e.g. home banner `group_code`). */
 export const APP_DATA_CONFIG_KEY = "data";
@@ -41,23 +43,22 @@ function isWebDevUsingMetroProxy(): boolean {
   );
 }
 
-function configRequestUrl(configEntryKey?: string): string {
-  const entryKey = configEntryKey?.trim();
-  const useDevProxy = isWebDevUsingMetroProxy();
-  if (useDevProxy) {
-    if (entryKey) {
-      const qs = new URLSearchParams({ config_key: entryKey });
-      return `${window.location.origin}${WEB_DEV_CONFIG_PROXY_PATH}?${qs.toString()}`;
-    }
-    return `${window.location.origin}${WEB_DEV_CONFIG_PROXY_PATH}`;
+function configPriBaseUrl(): string {
+  const pub = requiredEnv("API_CONFIG_PUBLIC_URL", apiConfigPublicUrl);
+  const url = new URL(pub);
+  url.pathname = url.pathname.replace(/\/?pub\/?$/, "/pri");
+  if (!/\/pri\/?$/.test(url.pathname)) {
+    throw new Error("API_CONFIG_PUBLIC_URL must point at /api/config/pub");
   }
-  const base = requiredEnv("API_CONFIG_PUBLIC_URL", apiConfigPublicUrl);
-  if (!entryKey) {
-    return base;
-  }
-  const url = new URL(base);
-  url.searchParams.set("config_key", entryKey);
+  url.search = "";
   return url.toString();
+}
+
+function configPriRequestUrl(): string {
+  if (isWebDevUsingMetroProxy()) {
+    return `${window.location.origin}${WEB_DEV_CONFIG_PRI_PROXY_PATH}`;
+  }
+  return configPriBaseUrl();
 }
 
 function parseConfigValue(raw: unknown): unknown {
@@ -74,12 +75,28 @@ function parseConfigValue(raw: unknown): unknown {
   return raw;
 }
 
-/** `GET` public config; `configEntryKey` selects `?config_key=…` (e.g. `data`). */
-export async function fetchPublicConfigValue<T>(configEntryKey?: string): Promise<T> {
-  const entryKey = configEntryKey?.trim();
+async function parseConfigEnvelope<T>(res: Response, context: string): Promise<T> {
+  if (!res.ok) {
+    throw new Error(`Config API failed: HTTP ${res.status}`);
+  }
+  const payload = (await res.json()) as ConfigEnvelope;
+  if (payload.errorCode !== 0) {
+    throw new Error(payload.message?.trim() || `Config API failed: errorCode ${String(payload.errorCode)}`);
+  }
+  const value = parseConfigValue(payload.data?.value);
+  if (value == null || typeof value !== "object") {
+    throw new Error(`Config API response missing data.value (${context})`);
+  }
+  return value as T;
+}
+
+/** `GET /api/config/pub` — existing host contract; do not change call shape. */
+export async function fetchPublicConfigValue<T>(): Promise<T> {
   const useDevProxy = isWebDevUsingMetroProxy();
-  const url = configRequestUrl(entryKey);
-  console.log("[configApi] request public config", { configEntryKey: entryKey ?? "_default", useDevProxy });
+  const url = useDevProxy
+    ? `${window.location.origin}${WEB_DEV_CONFIG_PROXY_PATH}`
+    : requiredEnv("API_CONFIG_PUBLIC_URL", apiConfigPublicUrl);
+  console.log("[configApi] GET pub", { useDevProxy });
   const res = await fetchWithHttpDebug(url, {
     method: "GET",
     ...(useDevProxy
@@ -91,25 +108,57 @@ export async function fetchPublicConfigValue<T>(configEntryKey?: string): Promis
           },
         }),
   });
-  if (!res.ok) {
-    throw new Error(`Config API failed: HTTP ${res.status}`);
-  }
-  const payload = (await res.json()) as ConfigEnvelope;
-  if (payload.errorCode !== 0) {
-    throw new Error(payload.message?.trim() || `Config API failed: errorCode ${String(payload.errorCode)}`);
-  }
-  const value = parseConfigValue(payload.data?.value);
-  if (value == null || typeof value !== "object") {
-    throw new Error(
-      `Config API response missing data.value${entryKey ? ` for config_key=${entryKey}` : ""}`,
-    );
-  }
-  return value as T;
+  return parseConfigEnvelope<T>(res, "GET pub");
 }
 
-/** Reads `banners.code` from config center `config_key=data` for home banner carousel `group_code`. */
+/** `POST /api/config/pri` — body `{ key }`; requires login headers. */
+export async function fetchPrivateConfigValue<T>(
+  configEntryKey: string,
+  accessToken: string,
+  conditions?: Record<string, unknown>,
+): Promise<T> {
+  const entryKey = configEntryKey.trim();
+  const token = accessToken.trim();
+  if (!entryKey) {
+    throw new Error("Config key is empty");
+  }
+  if (!token) {
+    throw new Error("Not signed in");
+  }
+  const useDevProxy = isWebDevUsingMetroProxy();
+  const url = configPriRequestUrl();
+  const body: { key: string; conditions?: Record<string, unknown> } = { key: entryKey };
+  if (conditions != null) {
+    body.conditions = conditions;
+  }
+  console.log("[configApi] POST pri", { key: entryKey, useDevProxy });
+  const res = await fetchWithHttpDebug(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(useDevProxy
+        ? {
+            "X-User-Access-Token": token,
+            Authorization: `Bearer ${token}`,
+          }
+        : {
+            "X-Config-Access-Key": requiredEnv("API_CONFIG_ACCESS_KEY", apiConfigAccessKey),
+            "X-User-Access-Token": token,
+            Authorization: `Bearer ${token}`,
+          }),
+    },
+    body: JSON.stringify(body),
+  });
+  return parseConfigEnvelope<T>(res, `POST pri key=${entryKey}`);
+}
+
+/** Reads `banners.code` via `POST /api/config/pri` with `key=data`. */
 export async function fetchBannerGroupCode(): Promise<string> {
-  const value = await fetchPublicConfigValue<AppDataConfigValue>(APP_DATA_CONFIG_KEY);
+  const token = useAuthStore.getState().accessToken?.trim();
+  if (!token) {
+    throw new Error("Not signed in");
+  }
+  const value = await fetchPrivateConfigValue<AppDataConfigValue>(APP_DATA_CONFIG_KEY, token);
   const code = value.banners?.code;
   if (typeof code !== "string" || code.trim() === "") {
     throw new Error("Config data.banners.code missing or empty");

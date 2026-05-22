@@ -43,7 +43,7 @@ function sanitizeHeaders(headersRaw: HeadersInit | undefined): Record<string, st
   const out: Record<string, string> = {};
   headers.forEach((value: string, key: string) => {
     const lower = key.toLowerCase();
-    if (lower === "x-config-access-key" || lower === "x-config-key") {
+    if (lower === "x-config-access-key" || lower === "x-user-access-token") {
       out[key] = "[REDACTED]";
       return;
     }

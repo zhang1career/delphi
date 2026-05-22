@@ -26,6 +26,7 @@ function readTrimmed(value: string | undefined): string {
 export const apiConfigPublicUrl = readTrimmed(
   process.env.EXPO_PUBLIC_API_CONFIG_PUBLIC_URL ?? extra.apiConfigPublicUrl,
 );
+/** Config entry key for `GET /api/config/pub` via `X-Config-Key` header (e.g. gateway host). */
 export const apiConfigPublicKey = readTrimmed(
   process.env.EXPO_PUBLIC_API_CONFIG_PUBLIC_KEY ?? extra.apiConfigPublicKey,
 );

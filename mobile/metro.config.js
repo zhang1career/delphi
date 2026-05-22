@@ -4,6 +4,7 @@ const http = require("http");
 const https = require("https");
 const { getDefaultConfig } = require("expo/metro-config");
 const { WEB_DEV_CONFIG_PROXY_PATH } = require("./devConfigProxyPath");
+const { WEB_DEV_CONFIG_PRI_PROXY_PATH } = require("./devConfigPriProxyPath");
 const { WEB_DEV_GATEWAY_PROXY_PATH } = require("./devGatewayProxyPath");
 
 require("dotenv").config({
@@ -79,23 +80,10 @@ function serveDevConfigProxy(req, res) {
     typeof userAgentRaw === "string" && userAgentRaw.trim() !== ""
       ? userAgentRaw.trim()
       : "BetMobile-ExpoDevConfigProxy/1.0";
-  let upstreamPath = targetUrl.pathname + targetUrl.search;
-  try {
-    const reqUrl = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
-    const configEntryKey = reqUrl.searchParams.get("config_key")?.trim();
-    if (configEntryKey) {
-      const upstreamUrl = new URL(targetUrl);
-      upstreamUrl.searchParams.set("config_key", configEntryKey);
-      upstreamPath = upstreamUrl.pathname + upstreamUrl.search;
-    }
-  } catch {
-    // Keep default upstream path when request URL cannot be parsed.
-  }
-
   const opts = {
     hostname: targetUrl.hostname,
     port: targetUrl.port || (isHttps ? 443 : 80),
-    path: upstreamPath,
+    path: targetUrl.pathname + targetUrl.search,
     method: "GET",
     headers: {
       "User-Agent": userAgent,
@@ -142,6 +130,107 @@ function serveDevConfigProxy(req, res) {
   });
 
   preq.end();
+}
+
+/**
+ * @param {import("http").IncomingMessage} req
+ * @param {import("http").ServerResponse} res
+ */
+function serveDevConfigPriProxy(req, res) {
+  const targetStr = (process.env.API_CONFIG_PUBLIC_URL || "").trim();
+  const accessKey = (process.env.API_CONFIG_ACCESS_KEY || "").trim();
+
+  if (!targetStr || !accessKey) {
+    res.statusCode = 503;
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.end(
+      JSON.stringify({
+        error: "Dev config pri proxy: set API_CONFIG_PUBLIC_URL and API_CONFIG_ACCESS_KEY in .env",
+      }),
+    );
+    return;
+  }
+
+  let targetUrl;
+  try {
+    targetUrl = new URL(targetStr);
+    targetUrl.pathname = targetUrl.pathname.replace(/\/?pub\/?$/, "/pri");
+    targetUrl.search = "";
+  } catch {
+    res.statusCode = 503;
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.end(JSON.stringify({ error: "Dev config pri proxy: invalid API_CONFIG_PUBLIC_URL" }));
+    return;
+  }
+
+  const isHttps = targetUrl.protocol === "https:";
+  const lib = isHttps ? https : http;
+  const userAgentRaw = req.headers["user-agent"];
+  const userAgent =
+    typeof userAgentRaw === "string" && userAgentRaw.trim() !== ""
+      ? userAgentRaw.trim()
+      : "BetMobile-ExpoDevConfigProxy/1.0";
+  /** @type {Record<string, string>} */
+  const upstreamHeaders = {
+    "User-Agent": userAgent,
+    "X-Config-Access-Key": accessKey,
+    "Content-Type": "application/json",
+  };
+  const userToken = req.headers["x-user-access-token"];
+  const authorization = req.headers["authorization"];
+  if (typeof userToken === "string" && userToken.trim() !== "") {
+    upstreamHeaders["X-User-Access-Token"] = userToken.trim();
+  }
+  if (typeof authorization === "string" && authorization.trim() !== "") {
+    upstreamHeaders["Authorization"] = authorization.trim();
+  }
+
+  const opts = {
+    hostname: targetUrl.hostname,
+    port: targetUrl.port || (isHttps ? 443 : 80),
+    path: targetUrl.pathname + targetUrl.search,
+    method: "POST",
+    headers: upstreamHeaders,
+  };
+
+  const preq = lib.request(opts, (pres) => {
+    res.statusCode = pres.statusCode ?? 502;
+    const hopByHop = new Set([
+      "connection",
+      "keep-alive",
+      "proxy-authenticate",
+      "proxy-authorization",
+      "te",
+      "trailers",
+      "transfer-encoding",
+      "upgrade",
+    ]);
+    for (const [key, value] of Object.entries(pres.headers)) {
+      if (value === undefined || hopByHop.has(key.toLowerCase())) {
+        continue;
+      }
+      if (Array.isArray(value)) {
+        res.setHeader(key, value);
+      } else {
+        res.setHeader(key, value);
+      }
+    }
+    pres.pipe(res);
+  });
+
+  preq.on("error", (err) => {
+    if (!res.headersSent) {
+      res.statusCode = 502;
+      res.setHeader("Content-Type", "application/json; charset=utf-8");
+      res.end(
+        JSON.stringify({
+          error: `Dev config pri proxy upstream error: ${String(err.message || err)}`,
+        }),
+      );
+    }
+  });
+
+  req.pipe(preq);
 }
 
 /**
@@ -394,6 +483,10 @@ config.server = {
       }
       if (url.startsWith(WEB_DEV_CONFIG_PROXY_PATH)) {
         serveDevConfigProxy(req, res);
+        return;
+      }
+      if (url.startsWith(WEB_DEV_CONFIG_PRI_PROXY_PATH)) {
+        serveDevConfigPriProxy(req, res);
         return;
       }
       return metroMiddleware(req, res, next);
