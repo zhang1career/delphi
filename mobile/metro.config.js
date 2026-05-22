@@ -79,10 +79,23 @@ function serveDevConfigProxy(req, res) {
     typeof userAgentRaw === "string" && userAgentRaw.trim() !== ""
       ? userAgentRaw.trim()
       : "BetMobile-ExpoDevConfigProxy/1.0";
+  let upstreamPath = targetUrl.pathname + targetUrl.search;
+  try {
+    const reqUrl = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
+    const configEntryKey = reqUrl.searchParams.get("config_key")?.trim();
+    if (configEntryKey) {
+      const upstreamUrl = new URL(targetUrl);
+      upstreamUrl.searchParams.set("config_key", configEntryKey);
+      upstreamPath = upstreamUrl.pathname + upstreamUrl.search;
+    }
+  } catch {
+    // Keep default upstream path when request URL cannot be parsed.
+  }
+
   const opts = {
     hostname: targetUrl.hostname,
     port: targetUrl.port || (isHttps ? 443 : 80),
-    path: targetUrl.pathname + targetUrl.search,
+    path: upstreamPath,
     method: "GET",
     headers: {
       "User-Agent": userAgent,

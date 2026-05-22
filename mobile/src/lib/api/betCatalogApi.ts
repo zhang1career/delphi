@@ -221,9 +221,6 @@ export type PagedEvents = {
   pagination: ReturnType<typeof normalizeProductPagination>;
 };
 
-/** `group_code` query value for `GET /api/bet/games` on the Games (Sports) home list. */
-export const BET_GAMES_GROUP_CODE_FIFA_2026 = "fifa-2026-group";
-
 /** `GET /api/bet/games` — paged catalog games. Items may include `banner` and `main_media` (resolved with mall CDN base into `bannerCdnUrl`); Sports tab carousel uses this list. */
 export async function fetchBetEventsPage(params?: {
   page?: number;

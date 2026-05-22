@@ -1,25 +1,7 @@
-import {
-  apiConfigAccessKey,
-  apiConfigPublicKey,
-  apiConfigPublicUrl,
-  cdnDistributionId,
-  hostRefreshIntervalMs,
-  webDevGatewayProxyOrigin,
-} from "@/lib/config";
-import { fetchWithHttpDebug } from "@/lib/httpDebug";
+import { fetchPublicConfigValue } from "@/lib/api/configApi";
+import { cdnDistributionId, hostRefreshIntervalMs, webDevGatewayProxyOrigin } from "@/lib/config";
 import { Platform } from "react-native";
-import { WEB_DEV_CONFIG_PROXY_PATH } from "../../devConfigProxyPath.js";
 import { WEB_DEV_GATEWAY_PROXY_PATH } from "../../devGatewayProxyPath.js";
-
-type ConfigHostEnvelope = {
-  errorCode?: number;
-  message?: string;
-  data?: {
-    value?: {
-      host?: unknown;
-    };
-  };
-};
 
 export type ServiceOrigins = {
   host: string;
@@ -86,32 +68,8 @@ function shouldUseWebDevGatewayProxy(gatewayBase: string): boolean {
 }
 
 async function fetchConfigHost(): Promise<string> {
-  const useDevProxy = isWebDevUsingMetroProxy();
-  const baseUrl = useDevProxy
-    ? `${window.location.origin}${WEB_DEV_CONFIG_PROXY_PATH}`
-    : requiredEnv("API_CONFIG_PUBLIC_URL", apiConfigPublicUrl);
-  const accessKey = useDevProxy ? "" : requiredEnv("API_CONFIG_ACCESS_KEY", apiConfigAccessKey);
-  const key = useDevProxy ? "" : requiredEnv("API_CONFIG_PUBLIC_KEY", apiConfigPublicKey);
-  console.log("[serviceOrigins] request config host", { url: baseUrl, useDevProxy });
-  const res = await fetchWithHttpDebug(baseUrl, {
-    method: "GET",
-    ...(useDevProxy
-      ? {}
-      : {
-          headers: {
-            "X-Config-Access-Key": requiredEnv("API_CONFIG_ACCESS_KEY", apiConfigAccessKey),
-            "X-Config-Key": requiredEnv("API_CONFIG_PUBLIC_KEY", apiConfigPublicKey),
-          },
-        }),
-  });
-  if (!res.ok) {
-    throw new Error(`Config API failed: HTTP ${res.status}`);
-  }
-  const payload = (await res.json()) as ConfigHostEnvelope;
-  if (payload.errorCode !== 0) {
-    throw new Error(payload.message?.trim() || `Config API failed: errorCode ${String(payload.errorCode)}`);
-  }
-  const hostRaw = payload.data?.value?.host;
+  const value = await fetchPublicConfigValue<{ host?: unknown }>();
+  const hostRaw = value.host;
   if (typeof hostRaw !== "string" || hostRaw.trim() === "") {
     throw new Error("Config API response missing data.value.host");
   }

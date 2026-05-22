@@ -4,8 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { BannerSlide } from "@/components/app/BannerCarousel";
 import { BannerCarousel } from "@/components/app/BannerCarousel";
 import { MarketsListView } from "@/features/bet/MarketsListView";
-import { useBetEventsInfiniteQuery } from "@/features/bet/hooks";
-import { BET_GAMES_GROUP_CODE_FIFA_2026 } from "@/lib/api/betCatalogApi";
+import { useBannerGroupCodeQuery, useBetEventsInfiniteQuery } from "@/features/bet/hooks";
 import { betGameAssetCdnUri } from "@/lib/betCdn";
 import { features } from "@/lib/config";
 import { useLocale } from "@/i18n/LocaleProvider";
@@ -19,8 +18,10 @@ export default function BetHomeScreen() {
   const { t } = useLocale();
   const insets = useSafeAreaInsets();
   const webNavTop = useWebTopTabBarInset();
+  const bannerGroupQ = useBannerGroupCodeQuery();
   const eventsQ = useBetEventsInfiniteQuery(BET_HOME_BANNER_GAMES_PER_PAGE, {
-    group_code: BET_GAMES_GROUP_CODE_FIFA_2026,
+    group_code: bannerGroupQ.data,
+    enabled: !!bannerGroupQ.data,
   });
 
   const eventRows = eventsQ.data?.pages.flatMap((p) => p.items) ?? [];
@@ -78,6 +79,13 @@ export default function BetHomeScreen() {
                 router.push(`/(app)/markets?${q.toString()}`);
               }}
             />
+            {bannerGroupQ.isError ? (
+              <Text className="text-red-400 px-4 mb-2">
+                {bannerGroupQ.error instanceof Error
+                  ? bannerGroupQ.error.message
+                  : t("home.loadBannerConfigError")}
+              </Text>
+            ) : null}
             {eventsQ.isError ? (
               <Text className="text-red-400 px-4 mb-2">
                 {eventsQ.error instanceof Error ? eventsQ.error.message : t("home.loadGamesError")}

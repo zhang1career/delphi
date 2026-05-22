@@ -5,6 +5,7 @@ import {
   fetchBetMarketDetail,
   fetchBetMarketsPage,
 } from "@/lib/api/betCatalogApi";
+import { fetchBannerGroupCode } from "@/lib/api/configApi";
 import {
   fetchBetLeaderboardPage,
   fetchBetOrder,
@@ -16,10 +17,19 @@ import { useAuthStore } from "@/stores/authStore";
 
 const DEFAULT_PER_PAGE = 15;
 
+/** Config center `data.banners.code` for home banner carousel `group_code`. */
+export function useBannerGroupCodeQuery() {
+  return useQuery({
+    queryKey: ["app-config", "data", "banners", "code"],
+    queryFn: fetchBannerGroupCode,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
 /** Infinite pages of `GET /api/bet/games` (events home + banner imagery). Default `status=1`. */
 export function useBetEventsInfiniteQuery(
   perPage: number = DEFAULT_PER_PAGE,
-  options?: { group_code?: string; status?: number | null },
+  options?: { group_code?: string; status?: number | null; enabled?: boolean },
 ) {
   const group_code = options?.group_code?.trim();
   const statusKey =
@@ -34,6 +44,7 @@ export function useBetEventsInfiniteQuery(
         ...(options?.status !== undefined ? { status: options.status } : {}),
       }),
     initialPageParam: 1,
+    enabled: options?.enabled !== false,
     getNextPageParam: (last) => {
       const { current_page, last_page } = last.pagination;
       if (current_page >= last_page) return undefined;

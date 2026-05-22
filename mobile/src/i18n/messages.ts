@@ -93,6 +93,7 @@ const en: Catalog = {
   "home.events": "Events",
   "home.markets": "Markets",
   "home.loadGamesError": "Could not load games.",
+  "home.loadBannerConfigError": "Could not load banner configuration.",
 
   "orders.predictionsOff": "Predictions list is off in app config.",
   "orders.title": "Predictions",
@@ -207,6 +208,7 @@ const zh: Catalog = {
   "home.events": "赛事",
   "home.markets": "盘口",
   "home.loadGamesError": "赛事加载失败。",
+  "home.loadBannerConfigError": "Banner 配置加载失败。",
 
   "orders.predictionsOff": "应用配置已关闭预测列表。",
   "orders.title": "预测",
