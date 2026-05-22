@@ -2,8 +2,19 @@ import { appLogLevel } from "@/lib/config";
 
 const MAX_LOG_TEXT_LENGTH = 1200;
 
+let httpDebugReadyLogged = false;
+
 function isHttpDebugEnabled(): boolean {
   return appLogLevel === "debug";
+}
+
+/** Use `console.log`: browser DevTools often hides `console.debug` unless Verbose is on. */
+function logHttp(event: "request" | "response" | "error", payload: Record<string, unknown>): void {
+  if (!httpDebugReadyLogged) {
+    httpDebugReadyLogged = true;
+    console.log("[http] debug logging enabled", { appLogLevel });
+  }
+  console.log(`[http] ${event}`, payload);
 }
 
 function trimForLog(text: string): string {
@@ -43,7 +54,7 @@ function sanitizeHeaders(headersRaw: HeadersInit | undefined): Record<string, st
   const out: Record<string, string> = {};
   headers.forEach((value: string, key: string) => {
     const lower = key.toLowerCase();
-    if (lower === "x-config-access-key" || lower === "x-user-access-token") {
+    if (lower === "x-config-access-key") {
       out[key] = "[REDACTED]";
       return;
     }
@@ -96,7 +107,7 @@ export async function fetchWithHttpDebug(input: RequestInfo | URL, init?: Reques
   const method = readRequestMethod(input, init);
   const reqBody = requestBodyPreview(init?.body);
   const reqHeaders = sanitizeHeaders(init?.headers);
-  console.debug("[http] request", {
+  logHttp("request", {
     method,
     url,
     headers: reqHeaders,
@@ -106,13 +117,9 @@ export async function fetchWithHttpDebug(input: RequestInfo | URL, init?: Reques
   try {
     const res = await fetch(input, init);
     const durationMs = Date.now() - startedAt;
-    if (res.ok) {
-      console.debug("[http] response", { method, url, status: res.status, ok: true, durationMs });
-      return res;
-    }
     const resHeaders = sanitizeHeaders(res.headers);
     const resBody = await responseBodyPreview(res);
-    console.debug("[http] response", {
+    logHttp("response", {
       method,
       url,
       status: res.status,
@@ -124,7 +131,7 @@ export async function fetchWithHttpDebug(input: RequestInfo | URL, init?: Reques
     return res;
   } catch (error) {
     const durationMs = Date.now() - startedAt;
-    console.debug("[http] error", {
+    logHttp("error", {
       method,
       url,
       durationMs,

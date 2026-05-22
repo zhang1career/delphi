@@ -111,19 +111,23 @@ export async function fetchPublicConfigValue<T>(): Promise<T> {
   return parseConfigEnvelope<T>(res, "GET pub");
 }
 
-/** `POST /api/config/pri` — body `{ key }`; requires login headers. */
+function bearerAuthHeaders(accessToken: string | undefined): Record<string, string> {
+  const token = accessToken?.trim();
+  if (!token) {
+    return {};
+  }
+  return { Authorization: `Bearer ${token}` };
+}
+
+/** `POST /api/config/pri` — body `{ key }`; optional `Authorization: Bearer` when signed in. */
 export async function fetchPrivateConfigValue<T>(
   configEntryKey: string,
-  accessToken: string,
+  accessToken?: string,
   conditions?: Record<string, unknown>,
 ): Promise<T> {
   const entryKey = configEntryKey.trim();
-  const token = accessToken.trim();
   if (!entryKey) {
     throw new Error("Config key is empty");
-  }
-  if (!token) {
-    throw new Error("Not signed in");
   }
   const useDevProxy = isWebDevUsingMetroProxy();
   const url = configPriRequestUrl();
@@ -131,20 +135,16 @@ export async function fetchPrivateConfigValue<T>(
   if (conditions != null) {
     body.conditions = conditions;
   }
-  console.log("[configApi] POST pri", { key: entryKey, useDevProxy });
+  console.log("[configApi] POST pri", { key: entryKey, useDevProxy, authenticated: !!accessToken?.trim() });
   const res = await fetchWithHttpDebug(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       ...(useDevProxy
-        ? {
-            "X-User-Access-Token": token,
-            Authorization: `Bearer ${token}`,
-          }
+        ? bearerAuthHeaders(accessToken)
         : {
             "X-Config-Access-Key": requiredEnv("API_CONFIG_ACCESS_KEY", apiConfigAccessKey),
-            "X-User-Access-Token": token,
-            Authorization: `Bearer ${token}`,
+            ...bearerAuthHeaders(accessToken),
           }),
     },
     body: JSON.stringify(body),
@@ -154,10 +154,7 @@ export async function fetchPrivateConfigValue<T>(
 
 /** Reads `banners.code` via `POST /api/config/pri` with `key=data`. */
 export async function fetchBannerGroupCode(): Promise<string> {
-  const token = useAuthStore.getState().accessToken?.trim();
-  if (!token) {
-    throw new Error("Not signed in");
-  }
+  const token = useAuthStore.getState().accessToken?.trim() || undefined;
   const value = await fetchPrivateConfigValue<AppDataConfigValue>(APP_DATA_CONFIG_KEY, token);
   const code = value.banners?.code;
   if (typeof code !== "string" || code.trim() === "") {

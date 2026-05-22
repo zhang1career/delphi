@@ -41,6 +41,10 @@ const API_CONFIG_ACCESS_KEY_VALUE = envTrim("API_CONFIG_ACCESS_KEY");
 if (API_CONFIG_ACCESS_KEY_VALUE) {
   process.env.EXPO_PUBLIC_API_CONFIG_ACCESS_KEY = API_CONFIG_ACCESS_KEY_VALUE;
 }
+const APP_LOG_LEVEL_VALUE = envTrim("APP_LOG_LEVEL");
+if (APP_LOG_LEVEL_VALUE) {
+  process.env.EXPO_PUBLIC_APP_LOG_LEVEL = APP_LOG_LEVEL_VALUE;
+}
 
 /** Comma-separated hostnames/IPs for NSExceptionDomains (cleartext HTTP); see docs/TODO.md. */
 function parseIosAtsInsecureHttpDomains() {

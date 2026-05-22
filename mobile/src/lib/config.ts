@@ -67,4 +67,6 @@ function parseLogLevel(value: string | undefined): AppLogLevel {
   return "info";
 }
 
-export const appLogLevel: AppLogLevel = parseLogLevel(extra.logLevel);
+export const appLogLevel: AppLogLevel = parseLogLevel(
+  process.env.EXPO_PUBLIC_APP_LOG_LEVEL ?? extra.logLevel,
+);

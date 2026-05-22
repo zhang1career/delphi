@@ -176,11 +176,7 @@ function serveDevConfigPriProxy(req, res) {
     "X-Config-Access-Key": accessKey,
     "Content-Type": "application/json",
   };
-  const userToken = req.headers["x-user-access-token"];
   const authorization = req.headers["authorization"];
-  if (typeof userToken === "string" && userToken.trim() !== "") {
-    upstreamHeaders["X-User-Access-Token"] = userToken.trim();
-  }
   if (typeof authorization === "string" && authorization.trim() !== "") {
     upstreamHeaders["Authorization"] = authorization.trim();
   }

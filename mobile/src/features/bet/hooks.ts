@@ -19,11 +19,9 @@ const DEFAULT_PER_PAGE = 15;
 
 /** Config center `key=data` → `banners.code` for home banner carousel `group_code`. */
 export function useBannerGroupCodeQuery() {
-  const token = useAuthStore((s) => s.accessToken);
   return useQuery({
-    queryKey: ["app-config", "data", "banners", "code", token],
+    queryKey: ["app-config", "data", "banners", "code"],
     queryFn: fetchBannerGroupCode,
-    enabled: !!token,
     staleTime: 5 * 60 * 1000,
   });
 }
