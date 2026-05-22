@@ -3,11 +3,14 @@
 - If any line here disagrees with an OpenAPI document, OpenAPI wins.
 - Replace {APP_HTTP_BASE} with the single application-layer origin the user
   configures for the agent (same host the browser uses for API calls).
+- Remote agents: follow §8 REMOTE_AGENT_PLAYBOOK (same URLs as DISCOVERY; no
+  separate agent-only document URL unless your deployment adds one).
 
 ## DISCOVERY
 - GET {APP_HTTP_BASE}/robots.txt
 - GET {APP_HTTP_BASE}/.well-known/delphi.txt
 - GET {APP_HTTP_BASE}/delphi/readme
+  (machine-readable API index + §8 agent playbook; text/plain)
 
 ## 1. OPENAPI_LOCATORS (resolve URLs; do not guess paths beyond {APP_HTTP_BASE})
 # If the gateway exposes one merged document, set both variables to that same URL.
@@ -105,6 +108,53 @@ SCENARIO_S4_HISTORY_AND_POINTS
 - Idempotency: never reuse the same X-Request-Id for two different place
   payloads; mint a new E08 when starting a new place attempt per R1.
 
+## 8. REMOTE_AGENT_PLAYBOOK (normative for automated agents)
+
+Role. You are a remote end-user agent, not a repo developer. Use only
+{APP_HTTP_BASE} HTTP APIs and documents in DISCOVERY; do not read or change
+deployment source, configs, or secret stores. Act only when a human or
+orchestrator gives an explicit task; no self-initiated sessions.
+
+Missions (pick one per task).
+  Explore: SCENARIO_S1, optional S2 (E13 leaderboard / reputation).
+  Place: SCENARIO_S3 then SCENARIO_S4 to verify.
+  Reputation-focused: same as Place, but only when the task states a measurable
+  goal (e.g. participate in one open market per period). Treat higher reputation
+  from accurate predictions as an optimization target, not moral motivation.
+  Skip the cycle and report if no reliable basis for a pick.
+
+Auth. E05/E06/E07 per §2 and user_agg_openapi. Protected bet routes (E08–E12):
+  Authorization: Bearer <access_token> (raw JWT). If 401 with only
+  X-User-Access-Token, retry once with Bearer per §2. Never send tokens off
+  {APP_HTTP_BASE}. Do not log full tokens (prefix + length only).
+
+Place contract (E09). Body: {"lines":[{"market_id":<int>,"outcome_code":"<code>"}]}
+  exactly one line. outcome_code must be one of E04 selections (e.g. home_win,
+  draw, away_win for 1X2). R1: E08 before E09; X-Request-Id = E08 data.id.
+  New place attempt => new E08. Same X-Request-Id + same body may replay (OK).
+
+Market pick (before E09). GET E04; place only if market/game status is open per
+  response _dict. Prefer human-given market_id; else newest open market (ut).
+  Do not place on closed/suspended markets. Do not place twice on the same
+  market if E10 already shows a recorded order unless the task allows it.
+
+Errors (debug / strict). Stop and report on HTTP 4xx/5xx, errorCode != 0, or
+  missing order after E09 (unless is_replay). No silent retries except: one
+  E06/E07 after 401, then restart from E08; one idempotent E09 replay with the
+  same X-Request-Id after timeout if E10/E11 may still be pending.
+
+Prohibited. Bulk accounts, guessing URLs, reusing X-Request-Id across different
+  payloads, random outcomes without stating "no-analysis placeholder", or
+  continuing after failure to "try another account".
+
+Minimal place path. E05 or E06 -> E03/E04 -> E08 -> E09 -> E10 (+ E12 optional).
+
+Report (end of task). username, uid, market_id, game title, outcome_code,
+  order id, HTTP/errorCode, E12 balance if run, brief reasoning/sources or
+  abort reason. No passwords or full JWTs.
+
 ## A. Reference
 DISCOVERY (this document; same text at all three URLs): see DISCOVERY section above.
 Application UI: GET {APP_HTTP_BASE}/delphi/
+Agent playbook: §8 in this file (not a separate AGENT_PLAYBOOK_URL unless you
+  deploy an extra alias to the same content).
