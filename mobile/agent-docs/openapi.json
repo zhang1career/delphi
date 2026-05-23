@@ -449,6 +449,7 @@
       "get": {
         "tags": ["Bet"],
         "summary": "Paged markets",
+        "description": "Each `data.items[]` market may embed `game` (`BetCatalogGameSummary`) with `starts_at` (Unix ms kickoff).",
         "parameters": [
           { "name": "page", "in": "query", "schema": { "type": "integer" } },
           { "name": "per_page", "in": "query", "schema": { "type": "integer" } },
@@ -456,7 +457,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Mall envelope; markets list"
+            "description": "Mall envelope; `data.items` are markets; embedded `game.starts_at` when present."
           }
         }
       }
@@ -693,9 +694,24 @@
           "last_page": { "type": "integer" }
         }
       },
+      "BetCatalogGameSummary": {
+        "type": "object",
+        "description": "Embedded game on `GET /api/bet/markets` items (`data.items[].game`).",
+        "required": ["id", "status"],
+        "properties": {
+          "id": { "type": "integer" },
+          "status": { "type": "integer" },
+          "title": { "type": "string", "description": "Display title (preferred over legacy `name`)" },
+          "name": { "type": "string", "description": "Legacy field; use `title` when returned by API" },
+          "starts_at": {
+            "type": "integer",
+            "description": "Kickoff Unix timestamp in milliseconds"
+          }
+        }
+      },
       "BetCatalogGame": {
         "type": "object",
-        "description": "Bet catalog game row from `GET /api/bet/games` / `GET /api/bet/games/{gameId}`. Primary label is `title`; `banner` is a CDN key or absolute URL for the Sports carousel.",
+        "description": "Bet catalog game row from `GET /api/bet/games` / `GET /api/bet/games/{gameId}`. Primary label is `title`; `banner` is a CDN key or absolute URL for the Sports carousel. Detail uses `starts_at` (not `start_at`).",
         "required": ["id", "status", "winning_selection_ids"],
         "properties": {
           "id": { "type": "integer" },
@@ -706,7 +722,10 @@
           "title": { "type": "string", "description": "Display title (preferred over legacy `name`)" },
           "name": { "type": "string", "description": "Legacy field; use `title` when returned by API" },
           "description": { "type": "string", "nullable": true },
-          "starts_at": { "type": "integer", "description": "Kickoff ms when present; may be omitted" },
+          "starts_at": {
+            "type": "integer",
+            "description": "Kickoff Unix timestamp in milliseconds; may be omitted"
+          },
           "banner": {
             "type": "string",
             "description": "Banner image: CDN object key or absolute URL"

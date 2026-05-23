@@ -47,10 +47,18 @@ function eventRowDisplayName(row: Record<string, unknown>): string {
   return "";
 }
 
+function kickoffMsFromRow(row: Record<string, unknown>): number {
+  const startsRaw = finiteInt(row.starts_at);
+  if (startsRaw !== null) {
+    return startsRaw;
+  }
+  const legacy = finiteInt(row.start_at);
+  return legacy !== null ? legacy : 0;
+}
+
 function toEvent(row: Record<string, unknown>): SportEvent {
   const id = finiteInt(row.id);
-  const startsRaw = finiteInt(row.starts_at);
-  const starts_at = startsRaw !== null ? startsRaw : 0;
+  const starts_at = kickoffMsFromRow(row);
   const status = finiteInt(row.status);
   const name = eventRowDisplayName(row);
   const ws = row.winning_selection_ids;
@@ -81,8 +89,7 @@ function toEvent(row: Record<string, unknown>): SportEvent {
 
 function toEventSummary(row: Record<string, unknown>): SportEventSummary {
   const id = finiteInt(row.id);
-  const startsRaw = finiteInt(row.starts_at);
-  const starts_at = startsRaw !== null ? startsRaw : 0;
+  const starts_at = kickoffMsFromRow(row);
   const status = finiteInt(row.status);
   const name = eventRowDisplayName(row);
   if (id === null || status === null) {

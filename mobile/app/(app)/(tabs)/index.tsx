@@ -65,6 +65,7 @@ export default function BetHomeScreen() {
     >
       <Text className="text-xl font-bold text-slate-100 px-4 mb-2">{t("home.events")}</Text>
       <MarketsListView
+        showGameStartsAt
         listHeader={
           <>
             <BannerCarousel

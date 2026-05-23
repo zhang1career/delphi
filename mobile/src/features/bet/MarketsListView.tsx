@@ -10,12 +10,24 @@ import {
 } from "react-native";
 import { useBetMarketsInfiniteQuery } from "@/features/bet/hooks";
 import type { SportMarket } from "@/lib/api/betTypes";
+import { formatKickoffMs } from "@/lib/formatKickoff";
 
-function MarketRow({ item, onPress }: { item: SportMarket; onPress: () => void }) {
+function MarketRow({
+  item,
+  onPress,
+  showGameStartsAt,
+}: {
+  item: SportMarket;
+  onPress: () => void;
+  showGameStartsAt: boolean;
+}) {
   const gameTitle = item.game?.name?.trim() ?? "";
   const marketName = item.name.trim().length > 0 ? item.name.trim() : "—";
   const statusLabel = item.market_status_label?.trim() ?? "—";
   const titleDisplay = gameTitle.length > 0 ? gameTitle : "—";
+  const startsAt = item.game?.starts_at ?? 0;
+  const startsAtLabel =
+    showGameStartsAt && startsAt > 0 ? formatKickoffMs(startsAt) : null;
 
   return (
     <Pressable
@@ -30,6 +42,9 @@ function MarketRow({ item, onPress }: { item: SportMarket; onPress: () => void }
         </Text>
         <Text className="text-slate-500 text-xs shrink-0">{statusLabel}</Text>
       </View>
+      {startsAtLabel ? (
+        <Text className="text-slate-500 text-xs mt-2">{startsAtLabel}</Text>
+      ) : null}
     </Pressable>
   );
 }
@@ -43,6 +58,8 @@ export type MarketsListViewProps = {
   listHeader?: ReactElement | null;
   /** Shown directly under `listHeader` before the markets heading. Default: “Markets”. */
   marketsHeading?: string | null;
+  /** When true, each row shows `game.starts_at` as `mm-dd hh:mm:ss` when present. */
+  showGameStartsAt?: boolean;
   onMarketPress: (item: SportMarket) => void;
   contentPaddingTop?: number;
   contentPaddingBottom?: number;
@@ -57,6 +74,7 @@ export function MarketsListView({
   backgroundImageUri,
   listHeader = null,
   marketsHeading = "Predictions",
+  showGameStartsAt = false,
   onMarketPress,
   contentPaddingTop = 12,
   contentPaddingBottom = 24,
@@ -122,7 +140,11 @@ export function MarketsListView({
         ) : null
       }
       renderItem={({ item }) => (
-        <MarketRow item={item} onPress={() => onMarketPress(item)} />
+        <MarketRow
+          item={item}
+          showGameStartsAt={showGameStartsAt}
+          onPress={() => onMarketPress(item)}
+        />
       )}
     />
   );

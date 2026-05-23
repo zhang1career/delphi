@@ -23,7 +23,7 @@ export type SportEventSummary = {
   id: number;
   /** From API `title` or `name`. */
   name: string;
-  /** `0` if kickoff not provided on embedded `game` objects. */
+  /** Kickoff Unix ms; `0` if omitted on embedded `game` (e.g. `GET /api/bet/markets`). */
   starts_at: number;
   status: number;
 };
