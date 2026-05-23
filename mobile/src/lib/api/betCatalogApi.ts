@@ -13,8 +13,11 @@ import {
   MARKET_QUOTES_BATCH_MAX,
   type MarketQuoteBatchItem,
   type MarketQuoteHistoryInterval,
+  type MarketQuoteHistoryOutcomeSeries,
+  type MarketQuoteHistoryPoint,
   type MarketQuoteOutcome,
   type MarketQuoteSnapshot,
+  quoteHistorySeriesToSnapshots,
 } from "./marketQuote";
 import { assertMallSuccess, readMallEnvelope, requireMallObjectData } from "./mallEnvelope";
 import { normalizeProductPagination } from "./mallPagination";
@@ -507,6 +510,56 @@ export type MarketQuoteHistoryResult = {
   items: MarketQuoteSnapshot[];
 };
 
+function toQuoteHistoryPoint(row: unknown): MarketQuoteHistoryPoint | null {
+  if (!row || typeof row !== "object" || Array.isArray(row)) {
+    return null;
+  }
+  const o = row as Record<string, unknown>;
+  const t = finiteInt(o.t);
+  if (t === null || t <= 0) {
+    return null;
+  }
+  return {
+    t,
+    pick_count: finiteInt(o.pick_count) ?? 0,
+    share_bp: finiteInt(o.share_bp) ?? 0,
+  };
+}
+
+function toQuoteHistoryOutcomeSeries(row: unknown): MarketQuoteHistoryOutcomeSeries | null {
+  if (!row || typeof row !== "object" || Array.isArray(row)) {
+    return null;
+  }
+  const o = row as Record<string, unknown>;
+  const outcome_code = typeof o.outcome_code === "string" ? o.outcome_code.trim() : "";
+  if (outcome_code.length === 0) {
+    return null;
+  }
+  const pointsRaw = o.points;
+  if (!Array.isArray(pointsRaw)) {
+    return null;
+  }
+  const points = pointsRaw
+    .map((point) => toQuoteHistoryPoint(point))
+    .filter((point): point is MarketQuoteHistoryPoint => point !== null);
+  return { outcome_code, points };
+}
+
+function parseQuoteHistorySnapshots(data: Record<string, unknown>): MarketQuoteSnapshot[] {
+  const seriesRaw = data.series;
+  if (Array.isArray(seriesRaw)) {
+    const series = seriesRaw
+      .map((row) => toQuoteHistoryOutcomeSeries(row))
+      .filter((row): row is MarketQuoteHistoryOutcomeSeries => row !== null);
+    return quoteHistorySeriesToSnapshots(series);
+  }
+  const itemsRaw = data.items;
+  if (Array.isArray(itemsRaw)) {
+    return itemsRaw.map((row) => toMarketQuoteSnapshot(row));
+  }
+  return [];
+}
+
 /** `GET /api/bet/markets/{id}/quote/history` — time series of crowd snapshots. */
 export async function fetchBetMarketQuoteHistory(
   marketId: number,
@@ -539,11 +592,7 @@ export async function fetchBetMarketQuoteHistory(
   }
   assertMallSuccess(env);
   const data = requireMallObjectData(env);
-  const itemsRaw = data.items as unknown;
-  if (!Array.isArray(itemsRaw)) {
-    throw new Error("Malformed market quote history");
-  }
-  const items = itemsRaw.map((row) => toMarketQuoteSnapshot(row));
+  const items = parseQuoteHistorySnapshots(data);
   return { items };
 }
 

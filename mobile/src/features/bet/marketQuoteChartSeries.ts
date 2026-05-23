@@ -142,6 +142,10 @@ export function plotPointsToPath(plotPoints: PlotPoint[]): string {
   if (plotPoints.length === 0) {
     return "";
   }
+  if (plotPoints.length === 1) {
+    const p = plotPoints[0];
+    return `M 0 ${p.y.toFixed(2)} L ${p.x.toFixed(2)} ${p.y.toFixed(2)}`;
+  }
   return plotPoints
     .map((p, idx) => `${idx === 0 ? "M" : "L"} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`)
     .join(" ");

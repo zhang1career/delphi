@@ -25,6 +25,65 @@ export const MARKET_QUOTES_BATCH_MAX = 100;
 
 export type MarketQuoteHistoryInterval = "1h" | "1d";
 
+/** One bucket in `GET …/quote/history` → `data.series[].points[]`. */
+export type MarketQuoteHistoryPoint = {
+  t: number;
+  pick_count: number;
+  share_bp: number;
+};
+
+/** Per-outcome time series in `GET …/quote/history` → `data.series[]`. */
+export type MarketQuoteHistoryOutcomeSeries = {
+  outcome_code: string;
+  points: MarketQuoteHistoryPoint[];
+};
+
+/** Pivot outcome-grouped history into snapshot rows for chart builders. */
+export function quoteHistorySeriesToSnapshots(
+  series: MarketQuoteHistoryOutcomeSeries[],
+): MarketQuoteSnapshot[] {
+  const timeMap = new Map<number, Map<string, MarketQuoteOutcome>>();
+
+  for (const s of series) {
+    const code = s.outcome_code.trim();
+    if (code.length === 0) {
+      continue;
+    }
+    for (const p of s.points) {
+      if (!Number.isFinite(p.t) || p.t <= 0) {
+        continue;
+      }
+      let outcomes = timeMap.get(p.t);
+      if (!outcomes) {
+        outcomes = new Map();
+        timeMap.set(p.t, outcomes);
+      }
+      outcomes.set(code, {
+        outcome_code: code,
+        pick_count: p.pick_count,
+        share_bp: p.share_bp,
+      });
+    }
+  }
+
+  return [...timeMap.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([t, outcomeMap]) => {
+      const outcomes = MARKET_QUOTE_OUTCOME_CODES.map((outcome_code) => {
+        const o = outcomeMap.get(outcome_code);
+        return (
+          o ?? {
+            outcome_code,
+            pick_count: 0,
+            share_bp: 0,
+          }
+        );
+      });
+      const total_picks = outcomes.reduce((sum, o) => sum + o.pick_count, 0);
+      return { as_of: t, total_picks, outcomes };
+    });
+}
+
 export function emptyMarketQuoteSnapshot(): MarketQuoteSnapshot {
   return {
     as_of: null,

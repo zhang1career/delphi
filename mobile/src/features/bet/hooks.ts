@@ -19,6 +19,7 @@ import {
 import { useAuthStore } from "@/stores/authStore";
 
 const DEFAULT_PER_PAGE = 15;
+const MARKET_QUOTE_HISTORY_REFRESH_MS = 5 * 60 * 1000;
 
 /** Config center `key=data` → `banners.code` for home banner carousel `group_code`. */
 export function useBannerGroupCodeQuery() {
@@ -123,11 +124,13 @@ export function useBetMarketQuoteHistoryQuery(
     to?: number;
     enabled?: boolean;
     staleTime?: number;
+    refetchInterval?: number | false;
   },
 ) {
   const numeric = Number.parseInt(marketId, 10);
   const ok = Number.isFinite(numeric) && numeric >= 1;
   const interval = options?.interval ?? "1h";
+  const refreshMs = options?.staleTime ?? MARKET_QUOTE_HISTORY_REFRESH_MS;
   return useQuery({
     queryKey: ["bet-market-quote-history", marketId, interval, options?.from ?? "_", options?.to ?? "_"],
     queryFn: () =>
@@ -137,7 +140,12 @@ export function useBetMarketQuoteHistoryQuery(
         ...(options?.to !== undefined ? { to: options.to } : {}),
       }),
     enabled: (options?.enabled !== false) && ok,
-    staleTime: options?.staleTime,
+    staleTime: refreshMs,
+    gcTime: refreshMs * 2,
+    refetchInterval: options?.refetchInterval ?? MARKET_QUOTE_HISTORY_REFRESH_MS,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 }
 

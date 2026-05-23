@@ -1,4 +1,4 @@
-import type { ReactElement } from "react";
+import { memo, useCallback, useMemo, useRef, type ReactElement } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -7,6 +7,7 @@ import {
   RefreshControl,
   Text,
   View,
+  type ListRenderItemInfo,
 } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
 import { useBetMarketsInfiniteQuery } from "@/features/bet/hooks";
@@ -30,12 +31,12 @@ function marketRowTitle(item: SportMarket): string {
   return `Market #${item.id}`;
 }
 
-function MarketRow({
+const MarketRow = memo(function MarketRow({
   item,
   onPress,
 }: {
   item: SportMarket;
-  onPress: () => void;
+  onPress: (item: SportMarket) => void;
 }) {
   const { t } = useLocale();
   const title = marketRowTitle(item);
@@ -45,7 +46,7 @@ function MarketRow({
 
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => onPress(item)}
       className="mx-4 mb-3 bg-surface-card rounded-xl border border-surface-border p-4 active:opacity-90"
     >
       <Text className="text-slate-100 font-semibold text-base leading-snug" numberOfLines={3}>
@@ -61,7 +62,7 @@ function MarketRow({
       <Text className="text-slate-500 text-xs mt-2">{startsAtLabel}</Text>
     </Pressable>
   );
-}
+});
 
 export type MarketsListViewProps = {
   /** When set and a positive integer, filters `GET /api/bet/markets?game_id=…`. */
@@ -93,68 +94,114 @@ export function MarketsListView({
 }: MarketsListViewProps) {
   const queryClient = useQueryClient();
   const marketsQ = useBetMarketsInfiniteQuery({ gameId });
-  const rows = marketsQ.data?.pages.flatMap((p) => p.items) ?? [];
-  const marketsErr: string | null = marketsQ.isError
-    ? marketsQ.error instanceof Error
-      ? marketsQ.error.message
+  const {
+    data: marketsData,
+    error: marketsError,
+    fetchNextPage,
+    hasNextPage,
+    isError: marketsIsError,
+    isFetchingNextPage,
+    isPending: marketsIsPending,
+    isRefetching: marketsIsRefetching,
+    refetch: refetchMarkets,
+  } = marketsQ;
+  const rows = marketsData?.pages.flatMap((p) => p.items) ?? [];
+  const marketsErr: string | null = marketsIsError
+    ? marketsError instanceof Error
+      ? marketsError.message
       : "Could not load markets."
     : null;
+
+  const endReachedLock = useRef(false);
+
+  const keyExtractor = useCallback((m: SportMarket) => String(m.id), []);
+
+  const contentContainerStyle = useMemo(
+    () => ({ paddingBottom: contentPaddingBottom, paddingTop: contentPaddingTop }),
+    [contentPaddingBottom, contentPaddingTop],
+  );
+
+  const listHeaderComponent = useMemo(
+    () => (
+      <>
+        {listHeader}
+        {marketsErr ? (
+          <Text className="text-red-400 px-4 mb-2">{marketsErr}</Text>
+        ) : null}
+        {marketsHeading !== null ? (
+          <Text className="text-slate-200 font-semibold px-4 mb-2">{marketsHeading}</Text>
+        ) : null}
+      </>
+    ),
+    [listHeader, marketsErr, marketsHeading],
+  );
+
+  const handleRefresh = useCallback(() => {
+    void refetchMarkets();
+    void queryClient.invalidateQueries({ queryKey: ["bet-market-quote-history"] });
+    void onRefreshExtra?.();
+  }, [onRefreshExtra, queryClient, refetchMarkets]);
+
+  const handleEndReached = useCallback(() => {
+    if (endReachedLock.current || !hasNextPage || isFetchingNextPage) {
+      return;
+    }
+    endReachedLock.current = true;
+    void fetchNextPage().finally(() => {
+      endReachedLock.current = false;
+    });
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
+
+  const renderItem = useCallback(
+    ({ item }: ListRenderItemInfo<SportMarket>) => (
+      <MarketRow item={item} onPress={onMarketPress} />
+    ),
+    [onMarketPress],
+  );
+
+  const listEmptyComponent = useMemo(
+    () =>
+      !marketsIsPending ? (
+        <Text className="text-slate-500 px-4">
+          No markets{gameId?.trim() ? " for this game" : ""}.
+        </Text>
+      ) : (
+        <View className="py-8 items-center">
+          <ActivityIndicator color="#a5b4fc" />
+        </View>
+      ),
+    [gameId, marketsIsPending],
+  );
+
+  const listFooterComponent = useMemo(
+    () =>
+      isFetchingNextPage ? (
+        <View className="py-4 items-center">
+          <ActivityIndicator color="#a5b4fc" />
+        </View>
+      ) : null,
+    [isFetchingNextPage],
+  );
 
   const listBody = (
     <FlatList
       style={{ flex: 1 }}
       data={rows}
-      keyExtractor={(m) => String(m.id)}
-      contentContainerStyle={{ paddingBottom: contentPaddingBottom, paddingTop: contentPaddingTop }}
+      keyExtractor={keyExtractor}
+      contentContainerStyle={contentContainerStyle}
       refreshControl={
         <RefreshControl
-          refreshing={marketsQ.isRefetching}
-          onRefresh={() => {
-            void marketsQ.refetch();
-            void queryClient.invalidateQueries({ queryKey: ["bet-market-quote-history"] });
-            void onRefreshExtra?.();
-          }}
+          refreshing={marketsIsRefetching}
+          onRefresh={handleRefresh}
           tintColor="#a5b4fc"
         />
       }
-      ListHeaderComponent={
-        <>
-          {listHeader}
-          {marketsErr ? (
-            <Text className="text-red-400 px-4 mb-2">{marketsErr}</Text>
-          ) : null}
-          {marketsHeading !== null ? (
-            <Text className="text-slate-200 font-semibold px-4 mb-2">{marketsHeading}</Text>
-          ) : null}
-        </>
-      }
-      onEndReached={() => {
-        if (marketsQ.hasNextPage && !marketsQ.isFetchingNextPage) {
-          void marketsQ.fetchNextPage();
-        }
-      }}
+      ListHeaderComponent={listHeaderComponent}
+      onEndReached={handleEndReached}
       onEndReachedThreshold={0.4}
-      ListEmptyComponent={
-        !marketsQ.isPending ? (
-          <Text className="text-slate-500 px-4">
-            No markets{gameId?.trim() ? " for this game" : ""}.
-          </Text>
-        ) : (
-          <View className="py-8 items-center">
-            <ActivityIndicator color="#a5b4fc" />
-          </View>
-        )
-      }
-      ListFooterComponent={
-        marketsQ.isFetchingNextPage ? (
-          <View className="py-4 items-center">
-            <ActivityIndicator color="#a5b4fc" />
-          </View>
-        ) : null
-      }
-      renderItem={({ item }) => (
-        <MarketRow item={item} onPress={() => onMarketPress(item)} />
-      )}
+      ListEmptyComponent={listEmptyComponent}
+      ListFooterComponent={listFooterComponent}
+      renderItem={renderItem}
     />
   );
 
