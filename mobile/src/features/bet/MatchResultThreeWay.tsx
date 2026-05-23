@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Pressable, Text, View } from "react-native";
 import type { SportSelection } from "@/lib/api/betTypes";
+import { formatShareBp, quoteOutcomeByCode, type MarketQuoteSnapshot } from "@/lib/api/marketQuote";
 
 /** Split "Home vs Away" style event titles for column headers (case-insensitive). */
 const EVENT_VS_SPLIT = /\s+vs\.?\s+|\s+v\s+/i;
@@ -69,11 +70,13 @@ export function MatchResultThreeWayRow({
   eventName,
   selectedKid,
   onSelect,
+  quote,
 }: {
   lines: [SportSelection, SportSelection, SportSelection];
   eventName: string;
   selectedKid: number | null;
   onSelect: (kid: number) => void;
+  quote?: MarketQuoteSnapshot;
 }) {
   const columns = useMemo(() => buildThreeColMeta(lines, eventName), [lines, eventName]);
 
@@ -81,6 +84,7 @@ export function MatchResultThreeWayRow({
     <View className="flex-row gap-2 px-4">
       {columns.map(({ line, headline, caption }) => {
         const chosen = selectedKid === line.id;
+        const shareBp = quote ? quoteOutcomeByCode(quote, line.outcome_code)?.share_bp : undefined;
         return (
           <Pressable
             key={line.id}
@@ -104,6 +108,11 @@ export function MatchResultThreeWayRow({
                 {line.label}
               </Text>
             )}
+            {shareBp !== undefined ? (
+              <Text className="text-indigo-300 text-xs font-medium mt-2 text-center">
+                {formatShareBp(shareBp)}
+              </Text>
+            ) : null}
           </Pressable>
         );
       })}

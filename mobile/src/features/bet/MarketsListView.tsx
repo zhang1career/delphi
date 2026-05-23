@@ -8,43 +8,57 @@ import {
   Text,
   View,
 } from "react-native";
+import { useQueryClient } from "@tanstack/react-query";
 import { useBetMarketsInfiniteQuery } from "@/features/bet/hooks";
+import { MarketQuoteHistoryChart } from "@/features/bet/MarketQuoteHistoryChart";
 import type { SportMarket } from "@/lib/api/betTypes";
 import { formatKickoffMs } from "@/lib/formatKickoff";
+import { useLocale } from "@/i18n/LocaleProvider";
+
+function marketRowTitle(item: SportMarket): string {
+  const gameTitle = item.game?.name?.trim() ?? "";
+  const marketName = item.name.trim();
+  if (gameTitle.length > 0 && marketName.length > 0) {
+    return `${gameTitle} · ${marketName}`;
+  }
+  if (gameTitle.length > 0) {
+    return gameTitle;
+  }
+  if (marketName.length > 0) {
+    return marketName;
+  }
+  return `Market #${item.id}`;
+}
 
 function MarketRow({
   item,
   onPress,
-  showGameStartsAt,
 }: {
   item: SportMarket;
   onPress: () => void;
-  showGameStartsAt: boolean;
 }) {
+  const { t } = useLocale();
+  const title = marketRowTitle(item);
   const gameTitle = item.game?.name?.trim() ?? "";
-  const marketName = item.name.trim().length > 0 ? item.name.trim() : "—";
-  const statusLabel = item.market_status_label?.trim() ?? "—";
-  const titleDisplay = gameTitle.length > 0 ? gameTitle : "—";
   const startsAt = item.game?.starts_at ?? 0;
-  const startsAtLabel =
-    showGameStartsAt && startsAt > 0 ? formatKickoffMs(startsAt) : null;
+  const startsAtLabel = startsAt > 0 ? formatKickoffMs(startsAt) : t("common.emDash");
 
   return (
     <Pressable
       onPress={onPress}
       className="mx-4 mb-3 bg-surface-card rounded-xl border border-surface-border p-4 active:opacity-90"
     >
-      <View className="flex-row items-center">
-        <Text className="flex-1 text-sm min-w-0 mr-2" numberOfLines={3}>
-          <Text className="text-slate-300">{titleDisplay}</Text>
-          <Text className="text-slate-300">{"  "}</Text>
-          <Text className="text-slate-100 font-semibold">{marketName}</Text>
-        </Text>
-        <Text className="text-slate-500 text-xs shrink-0">{statusLabel}</Text>
-      </View>
-      {startsAtLabel ? (
-        <Text className="text-slate-500 text-xs mt-2">{startsAtLabel}</Text>
-      ) : null}
+      <Text className="text-slate-100 font-semibold text-base leading-snug" numberOfLines={3}>
+        {title}
+      </Text>
+
+      <MarketQuoteHistoryChart
+        marketId={item.id}
+        eventName={gameTitle}
+        className="mt-3"
+      />
+
+      <Text className="text-slate-500 text-xs mt-2">{startsAtLabel}</Text>
     </Pressable>
   );
 }
@@ -58,8 +72,6 @@ export type MarketsListViewProps = {
   listHeader?: ReactElement | null;
   /** Shown directly under `listHeader` before the markets heading. Default: “Markets”. */
   marketsHeading?: string | null;
-  /** When true, each row shows `game.starts_at` as `mm-dd hh:mm:ss` when present. */
-  showGameStartsAt?: boolean;
   onMarketPress: (item: SportMarket) => void;
   contentPaddingTop?: number;
   contentPaddingBottom?: number;
@@ -74,12 +86,12 @@ export function MarketsListView({
   backgroundImageUri,
   listHeader = null,
   marketsHeading = "Predictions",
-  showGameStartsAt = false,
   onMarketPress,
   contentPaddingTop = 12,
   contentPaddingBottom = 24,
   onRefreshExtra,
 }: MarketsListViewProps) {
+  const queryClient = useQueryClient();
   const marketsQ = useBetMarketsInfiniteQuery({ gameId });
   const rows = marketsQ.data?.pages.flatMap((p) => p.items) ?? [];
   const marketsErr: string | null = marketsQ.isError
@@ -99,6 +111,7 @@ export function MarketsListView({
           refreshing={marketsQ.isRefetching}
           onRefresh={() => {
             void marketsQ.refetch();
+            void queryClient.invalidateQueries({ queryKey: ["bet-market-quote-history"] });
             void onRefreshExtra?.();
           }}
           tintColor="#a5b4fc"
@@ -140,11 +153,7 @@ export function MarketsListView({
         ) : null
       }
       renderItem={({ item }) => (
-        <MarketRow
-          item={item}
-          showGameStartsAt={showGameStartsAt}
-          onPress={() => onMarketPress(item)}
-        />
+        <MarketRow item={item} onPress={() => onMarketPress(item)} />
       )}
     />
   );

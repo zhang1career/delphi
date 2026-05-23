@@ -1,6 +1,9 @@
+import type { MarketQuoteSnapshot } from "./marketQuote";
 import type { OrderPagination as ListPagination } from "./orderTypes";
 
 export type { ListPagination };
+export type { MarketQuoteSnapshot, MarketQuoteOutcome, MarketQuoteBatchItem, MarketQuoteHistoryInterval } from "./marketQuote";
+export { MARKET_QUOTES_BATCH_MAX, emptyMarketQuoteSnapshot, formatShareBp, quoteOutcomeByCode } from "./marketQuote";
 
 export type SportEvent = {
   id: number;
@@ -32,9 +35,15 @@ export type SportMarket = {
   id: number;
   /** CMS / catalog game id (`biz_market.game_id`). */
   game_id: number;
+  /** Catalog market type id. */
+  type?: number;
   /** Local display label on `biz_market`. */
   name: string;
   status: number;
+  /** Updated-at epoch ms from bet-agg. */
+  ut?: number;
+  /** Crowd pick snapshot; list when `include=quote`, always on detail. */
+  quote?: MarketQuoteSnapshot;
   /** From `data._dict.market_status` on `GET /api/bet/markets` when present. */
   market_status_label?: string;
   /** Present on `GET /api/bet/markets/{id}`; list `GET /api/bet/markets` may omit this field. */

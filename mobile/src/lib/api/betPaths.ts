@@ -10,8 +10,14 @@ export function betGamePath(gameId: number): string {
 
 export const BET_MARKETS_PATH = "/api/bet/markets";
 
+export const BET_MARKETS_QUOTES_PATH = "/api/bet/markets/quotes";
+
 export function betMarketPath(marketId: number): string {
   return `/api/bet/markets/${marketId}`;
+}
+
+export function betMarketQuoteHistoryPath(marketId: number): string {
+  return `/api/bet/markets/${marketId}/quote/history`;
 }
 
 export const BET_ORDERS_PATH = "/api/bet/orders";

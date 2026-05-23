@@ -3,8 +3,11 @@ import {
   fetchBetEventDetail,
   fetchBetEventsPage,
   fetchBetMarketDetail,
+  fetchBetMarketQuoteHistory,
+  fetchBetMarketQuotes,
   fetchBetMarketsPage,
 } from "@/lib/api/betCatalogApi";
+import type { MarketQuoteHistoryInterval } from "@/lib/api/marketQuote";
 import { fetchBannerGroupCode } from "@/lib/api/configApi";
 import {
   fetchBetLeaderboardPage,
@@ -63,17 +66,21 @@ export function useBetEventQuery(eventId: string) {
   });
 }
 
-export function useBetMarketsInfiniteQuery(opts: { gameId?: string; perPage?: number } = {}) {
+export function useBetMarketsInfiniteQuery(
+  opts: { gameId?: string; perPage?: number; includeQuote?: boolean } = {},
+) {
   const numeric = opts.gameId != null && opts.gameId !== "" ? Number.parseInt(opts.gameId, 10) : NaN;
   const game_id = Number.isFinite(numeric) && numeric >= 1 ? numeric : undefined;
   const perPage = opts.perPage ?? DEFAULT_PER_PAGE;
+  const includeQuote = opts.includeQuote !== false;
   return useInfiniteQuery({
-    queryKey: ["bet-markets", "paged", perPage, game_id ?? "_all"],
+    queryKey: ["bet-markets", "paged", perPage, game_id ?? "_all", includeQuote ? "quote" : "_noquote"],
     queryFn: ({ pageParam }) =>
       fetchBetMarketsPage({
         page: pageParam,
         per_page: perPage,
         ...(game_id !== undefined ? { game_id } : {}),
+        ...(includeQuote ? { include_quote: true } : {}),
       }),
     initialPageParam: 1,
     getNextPageParam: (last) => {
@@ -91,6 +98,46 @@ export function useBetMarketQuery(marketId: string) {
     queryKey: ["bet-market", marketId],
     queryFn: () => fetchBetMarketDetail(numeric),
     enabled: ok,
+  });
+}
+
+/** Batch refresh `GET /api/bet/markets/quotes` for visible market ids (max 100 per request, chunked). */
+export function useBetMarketQuotesQuery(
+  marketIds: number[],
+  options?: { enabled?: boolean; refetchInterval?: number | false },
+) {
+  const idsKey = [...new Set(marketIds.filter((id) => Number.isFinite(id) && id >= 1))].sort((a, b) => a - b);
+  return useQuery({
+    queryKey: ["bet-market-quotes", idsKey.join(",")],
+    queryFn: () => fetchBetMarketQuotes(idsKey),
+    enabled: (options?.enabled !== false) && idsKey.length > 0,
+    refetchInterval: options?.refetchInterval,
+  });
+}
+
+export function useBetMarketQuoteHistoryQuery(
+  marketId: string,
+  options?: {
+    interval?: MarketQuoteHistoryInterval;
+    from?: number;
+    to?: number;
+    enabled?: boolean;
+    staleTime?: number;
+  },
+) {
+  const numeric = Number.parseInt(marketId, 10);
+  const ok = Number.isFinite(numeric) && numeric >= 1;
+  const interval = options?.interval ?? "1h";
+  return useQuery({
+    queryKey: ["bet-market-quote-history", marketId, interval, options?.from ?? "_", options?.to ?? "_"],
+    queryFn: () =>
+      fetchBetMarketQuoteHistory(numeric, {
+        interval,
+        ...(options?.from !== undefined ? { from: options.from } : {}),
+        ...(options?.to !== undefined ? { to: options.to } : {}),
+      }),
+    enabled: (options?.enabled !== false) && ok,
+    staleTime: options?.staleTime,
   });
 }
 

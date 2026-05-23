@@ -115,6 +115,9 @@ const en: Catalog = {
 
   "markets.loadMarketError": "Could not load market.",
   "markets.noOpenSelections": "No open selections for this market.",
+  "markets.crowdSentiment": "Crowd sentiment",
+  "markets.totalPicks": "Total picks",
+  "markets.quoteAsOf": "Updated",
 
   "common.emDash": "—",
 };
@@ -230,6 +233,9 @@ const zh: Catalog = {
 
   "markets.loadMarketError": "盘口加载失败。",
   "markets.noOpenSelections": "该盘口暂无可选结果。",
+  "markets.crowdSentiment": "大众倾向",
+  "markets.totalPicks": "总预测数",
+  "markets.quoteAsOf": "更新于",
 
   "common.emDash": "—",
 };

@@ -13,8 +13,11 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { submitBetOrder, useBetMarketQuery } from "@/features/bet/hooks";
+import { MarketQuoteShareBar } from "@/features/bet/MarketQuoteShareBar";
 import { MallApiError } from "@/lib/api/mallEnvelope";
 import type { SportSelection } from "@/lib/api/betTypes";
+import { emptyMarketQuoteSnapshot, formatShareBp, quoteOutcomeByCode } from "@/lib/api/marketQuote";
+import { formatKickoffMs } from "@/lib/formatKickoff";
 import { isThreeWayLineup, MatchResultThreeWayRow } from "@/features/bet/MatchResultThreeWay";
 import { features } from "@/lib/config";
 import { buildLoginHref } from "@/lib/auth/postLoginReturn";
@@ -41,6 +44,7 @@ export default function MarketDetailScreen() {
 
   const market = marketQ.data;
   const lines = market?.selections ?? [];
+  const quote = market?.quote ?? emptyMarketQuoteSnapshot();
 
   const onCatalogRefresh = () => {
     setRefreshing(true);
@@ -157,6 +161,18 @@ export default function MarketDetailScreen() {
             <Text className="text-slate-500 text-xs mt-2">
               Pick one outcome. This is a non-monetary prediction; reputation may change after settlement.
             </Text>
+            <View className="mt-4 rounded-xl border border-surface-border bg-surface p-3">
+              <Text className="text-slate-400 text-xs uppercase tracking-wide">{t("markets.crowdSentiment")}</Text>
+              <Text className="text-slate-300 text-sm mt-1">
+                {t("markets.totalPicks")}: {quote.total_picks}
+              </Text>
+              {quote.as_of !== null && quote.as_of > 0 ? (
+                <Text className="text-slate-500 text-xs mt-1">
+                  {t("markets.quoteAsOf")}: {formatKickoffMs(quote.as_of)}
+                </Text>
+              ) : null}
+              <MarketQuoteShareBar quote={quote} className="mt-3" />
+            </View>
           </View>
           {showThreeWay ? (
             <MatchResultThreeWayRow
@@ -164,16 +180,21 @@ export default function MarketDetailScreen() {
               eventName={gameLabel}
               selectedKid={selectedKid}
               onSelect={setSelectedKid}
+              quote={quote}
             />
           ) : (
-            lines.map((line) => (
-              <SelectionRow
-                key={line.id}
-                line={line}
-                chosen={selectedKid === line.id}
-                onSelect={() => setSelectedKid(line.id)}
-              />
-            ))
+            lines.map((line) => {
+              const shareBp = quoteOutcomeByCode(quote, line.outcome_code)?.share_bp;
+              return (
+                <SelectionRow
+                  key={line.id}
+                  line={line}
+                  chosen={selectedKid === line.id}
+                  onSelect={() => setSelectedKid(line.id)}
+                  shareLabel={shareBp !== undefined ? formatShareBp(shareBp) : undefined}
+                />
+              );
+            })
           )}
           {lines.length === 0 ? (
             <Text className="text-slate-500 px-4">{t("markets.noOpenSelections")}</Text>
@@ -216,10 +237,12 @@ function SelectionRow({
   line,
   chosen,
   onSelect,
+  shareLabel,
 }: {
   line: SportSelection;
   chosen: boolean;
   onSelect: () => void;
+  shareLabel?: string;
 }) {
   return (
     <Pressable
@@ -231,7 +254,10 @@ function SelectionRow({
         chosen ? "border-brand bg-surface-card" : "border-surface-border bg-surface"
       } active:opacity-90`}
     >
-      <Text className="text-slate-100 font-medium">{line.label}</Text>
+      <View className="flex-row items-center justify-between gap-2">
+        <Text className="text-slate-100 font-medium flex-1">{line.label}</Text>
+        {shareLabel ? <Text className="text-indigo-300 text-sm font-medium">{shareLabel}</Text> : null}
+      </View>
     </Pressable>
   );
 }

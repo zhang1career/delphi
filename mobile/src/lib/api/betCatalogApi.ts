@@ -1,6 +1,21 @@
 import { betPublicJsonHeaders } from "./betAggHeaders";
 import type { SportEvent, SportEventSummary, SportMarket, SportSelection } from "./betTypes";
-import { BET_GAMES_PATH, BET_MARKETS_PATH, betGamePath, betMarketPath } from "./betPaths";
+import {
+  BET_GAMES_PATH,
+  BET_MARKETS_PATH,
+  BET_MARKETS_QUOTES_PATH,
+  betGamePath,
+  betMarketPath,
+  betMarketQuoteHistoryPath,
+} from "./betPaths";
+import {
+  emptyMarketQuoteSnapshot,
+  MARKET_QUOTES_BATCH_MAX,
+  type MarketQuoteBatchItem,
+  type MarketQuoteHistoryInterval,
+  type MarketQuoteOutcome,
+  type MarketQuoteSnapshot,
+} from "./marketQuote";
 import { assertMallSuccess, readMallEnvelope, requireMallObjectData } from "./mallEnvelope";
 import { normalizeProductPagination } from "./mallPagination";
 import { betGameAssetCdnUriWithBase } from "@/lib/betCdn";
@@ -109,6 +124,42 @@ function selectionNumericIdFromRow(row: Record<string, unknown>): number | null 
   return null;
 }
 
+function toMarketQuoteOutcome(row: Record<string, unknown>): MarketQuoteOutcome | null {
+  const outcome_code =
+    typeof row.outcome_code === "string" && row.outcome_code.trim().length > 0
+      ? row.outcome_code.trim()
+      : null;
+  if (outcome_code === null) {
+    return null;
+  }
+  return {
+    outcome_code,
+    pick_count: finiteInt(row.pick_count) ?? 0,
+    share_bp: finiteInt(row.share_bp) ?? 0,
+  };
+}
+
+export function toMarketQuoteSnapshot(row: unknown): MarketQuoteSnapshot {
+  if (!row || typeof row !== "object" || Array.isArray(row)) {
+    return emptyMarketQuoteSnapshot();
+  }
+  const o = row as Record<string, unknown>;
+  const as_of = o.as_of === null ? null : finiteInt(o.as_of);
+  const total_picks = finiteInt(o.total_picks) ?? 0;
+  const outcomesRaw = o.outcomes;
+  if (!Array.isArray(outcomesRaw)) {
+    return { as_of, total_picks, outcomes: emptyMarketQuoteSnapshot().outcomes };
+  }
+  const outcomes = outcomesRaw
+    .filter((r): r is Record<string, unknown> => !!r && typeof r === "object" && !Array.isArray(r))
+    .map((r) => toMarketQuoteOutcome(r))
+    .filter((x): x is MarketQuoteOutcome => x !== null);
+  if (outcomes.length === 0) {
+    return { as_of, total_picks, outcomes: emptyMarketQuoteSnapshot().outcomes };
+  }
+  return { as_of, total_picks, outcomes };
+}
+
 function toMarket(row: Record<string, unknown>): SportMarket {
   const id = finiteInt(row.id);
   const game_id = finiteInt(row.game_id);
@@ -116,6 +167,13 @@ function toMarket(row: Record<string, unknown>): SportMarket {
   const name = typeof row.name === "string" ? row.name : "";
   if (id === null || game_id === null || status === null) {
     throw new Error("Malformed market");
+  }
+  const type = finiteInt(row.type);
+  const ut = finiteInt(row.ut);
+  const quoteRaw = row.quote;
+  let quote: MarketQuoteSnapshot | undefined;
+  if (quoteRaw !== undefined) {
+    quote = toMarketQuoteSnapshot(quoteRaw);
   }
   const gameRaw = row.game;
   let game: SportEventSummary | null | undefined;
@@ -138,6 +196,9 @@ function toMarket(row: Record<string, unknown>): SportMarket {
     game_id,
     name,
     status,
+    ...(type !== null ? { type } : {}),
+    ...(ut !== null ? { ut } : {}),
+    ...(quote !== undefined ? { quote } : {}),
     ...(selections !== undefined ? { selections } : {}),
     ...(game !== undefined ? { game } : {}),
   };
@@ -312,6 +373,8 @@ export async function fetchBetMarketsPage(params?: {
    * Pass `null` to omit the query parameter (all statuses, if the server allows).
    */
   status?: number | null;
+  /** When true, sends `include=quote` (crowd pick snapshot per item). */
+  include_quote?: boolean;
 }): Promise<PagedMarkets> {
   const base = await betBase();
   const qs = new URLSearchParams({
@@ -326,6 +389,9 @@ export async function fetchBetMarketsPage(params?: {
   const status = rawStatus === undefined ? 1 : rawStatus;
   if (status !== null) {
     qs.set("status", String(status));
+  }
+  if (params?.include_quote) {
+    qs.set("include", "quote");
   }
   const res = await fetchWithHttpDebug(`${base}${BET_MARKETS_PATH}?${qs.toString()}`, {
     method: "GET",
@@ -367,6 +433,117 @@ export async function fetchBetMarketDetail(marketId: number): Promise<SportMarke
   }
   assertMallSuccess(env);
   const data = requireMallObjectData(env);
-  return toMarket(data);
+  const market = toMarket(data);
+  return {
+    ...market,
+    quote: market.quote ?? toMarketQuoteSnapshot(data.quote ?? null),
+  };
+}
+
+function uniquePositiveMarketIds(ids: number[]): number[] {
+  const seen = new Set<number>();
+  const out: number[] = [];
+  for (const raw of ids) {
+    const id = Math.trunc(raw);
+    if (!Number.isFinite(id) || id < 1 || seen.has(id)) {
+      continue;
+    }
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
+}
+
+async function fetchBetMarketQuotesBatch(marketIds: number[]): Promise<MarketQuoteBatchItem[]> {
+  if (marketIds.length === 0) {
+    return [];
+  }
+  const base = await betBase();
+  const qs = new URLSearchParams({ market_ids: marketIds.join(",") });
+  const res = await fetchWithHttpDebug(`${base}${BET_MARKETS_QUOTES_PATH}?${qs.toString()}`, {
+    method: "GET",
+    headers: betPublicJsonHeaders(),
+  });
+  const env = await readMallEnvelope(res);
+  if (!res.ok) {
+    throw new Error(env.message?.trim() || `HTTP ${res.status}`);
+  }
+  assertMallSuccess(env);
+  const data = requireMallObjectData(env);
+  const itemsRaw = data.items as unknown;
+  if (!Array.isArray(itemsRaw)) {
+    throw new Error("Malformed market quotes batch");
+  }
+  return itemsRaw
+    .filter((row): row is Record<string, unknown> => !!row && typeof row === "object" && !Array.isArray(row))
+    .map((row) => {
+      const market_id = finiteInt(row.market_id);
+      if (market_id === null) {
+        throw new Error("Malformed market quotes batch item");
+      }
+      return {
+        market_id,
+        quote: toMarketQuoteSnapshot(row.quote),
+      };
+    });
+}
+
+/** `GET /api/bet/markets/quotes` — batch refresh; chunks above {@link MARKET_QUOTES_BATCH_MAX}. */
+export async function fetchBetMarketQuotes(marketIds: number[]): Promise<MarketQuoteBatchItem[]> {
+  const ids = uniquePositiveMarketIds(marketIds);
+  if (ids.length === 0) {
+    return [];
+  }
+  const merged: MarketQuoteBatchItem[] = [];
+  for (let i = 0; i < ids.length; i += MARKET_QUOTES_BATCH_MAX) {
+    const chunk = ids.slice(i, i + MARKET_QUOTES_BATCH_MAX);
+    const batch = await fetchBetMarketQuotesBatch(chunk);
+    merged.push(...batch);
+  }
+  return merged;
+}
+
+export type MarketQuoteHistoryResult = {
+  items: MarketQuoteSnapshot[];
+};
+
+/** `GET /api/bet/markets/{id}/quote/history` — time series of crowd snapshots. */
+export async function fetchBetMarketQuoteHistory(
+  marketId: number,
+  params?: {
+    interval?: MarketQuoteHistoryInterval;
+    from?: number;
+    to?: number;
+  },
+): Promise<MarketQuoteHistoryResult> {
+  const base = await betBase();
+  const qs = new URLSearchParams({ interval: params?.interval ?? "1h" });
+  const from = params?.from;
+  if (from !== undefined && Number.isFinite(from)) {
+    qs.set("from", String(Math.trunc(from)));
+  }
+  const to = params?.to;
+  if (to !== undefined && Number.isFinite(to)) {
+    qs.set("to", String(Math.trunc(to)));
+  }
+  const res = await fetchWithHttpDebug(`${base}${betMarketQuoteHistoryPath(marketId)}?${qs.toString()}`, {
+    method: "GET",
+    headers: betPublicJsonHeaders(),
+  });
+  const env = await readMallEnvelope(res);
+  if (res.status === 404) {
+    return { items: [] };
+  }
+  if (!res.ok) {
+    throw new Error(env.message?.trim() || `HTTP ${res.status}`);
+  }
+  assertMallSuccess(env);
+  const data = requireMallObjectData(env);
+  const itemsRaw = data.items as unknown;
+  if (!Array.isArray(itemsRaw)) {
+    throw new Error("Malformed market quote history");
+  }
+  const items = itemsRaw.map((row) => toMarketQuoteSnapshot(row));
+  return { items };
 }
 
