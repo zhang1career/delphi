@@ -105,7 +105,21 @@ function toEvent(row: Record<string, unknown>): SportEvent {
   };
 }
 
-function toEventSummary(row: Record<string, unknown>): SportEventSummary {
+function optionalNonEmptyString(value: unknown): string | null {
+  if (typeof value === "string" && value.trim().length > 0) {
+    return value.trim();
+  }
+  return null;
+}
+
+function sideIconCdnUrl(cdnBase: string, iconRef: string | null): string | null {
+  if (iconRef === null) {
+    return null;
+  }
+  return betGameAssetCdnUriWithBase(cdnBase, iconRef);
+}
+
+function toEventSummary(row: Record<string, unknown>, cdnBase: string): SportEventSummary {
   const id = finiteInt(row.id);
   const starts_at = kickoffMsFromRow(row);
   const status = finiteInt(row.status);
@@ -113,7 +127,14 @@ function toEventSummary(row: Record<string, unknown>): SportEventSummary {
   if (id === null || status === null) {
     throw new Error("Malformed event summary");
   }
-  return { id, name, starts_at, status };
+  return {
+    id,
+    name,
+    starts_at,
+    status,
+    side_a_icon_url: sideIconCdnUrl(cdnBase, optionalNonEmptyString(row.side_a_icon)),
+    side_b_icon_url: sideIconCdnUrl(cdnBase, optionalNonEmptyString(row.side_b_icon)),
+  };
 }
 
 function selectionNumericIdFromRow(row: Record<string, unknown>): number | null {
@@ -163,7 +184,7 @@ export function toMarketQuoteSnapshot(row: unknown): MarketQuoteSnapshot {
   return { as_of, total_picks, outcomes };
 }
 
-function toMarket(row: Record<string, unknown>): SportMarket {
+function toMarket(row: Record<string, unknown>, cdnBase: string): SportMarket {
   const id = finiteInt(row.id);
   const game_id = finiteInt(row.game_id);
   const status = finiteInt(row.status);
@@ -182,7 +203,7 @@ function toMarket(row: Record<string, unknown>): SportMarket {
   let game: SportEventSummary | null | undefined;
   if (gameRaw && typeof gameRaw === "object" && !Array.isArray(gameRaw)) {
     try {
-      game = toEventSummary(gameRaw as Record<string, unknown>);
+      game = toEventSummary(gameRaw as Record<string, unknown>, cdnBase);
     } catch {
       game = undefined;
     }
@@ -192,7 +213,7 @@ function toMarket(row: Record<string, unknown>): SportMarket {
   if (Array.isArray(selRaw)) {
     selections = selRaw
       .filter((r): r is Record<string, unknown> => !!r && typeof r === "object" && !Array.isArray(r))
-      .map((r) => toSelection(r, id));
+      .map((r) => toSelection(r, id, cdnBase));
   }
   return {
     id,
@@ -243,7 +264,7 @@ function attachMarketStatusLabels(items: SportMarket[], map: Map<number, string>
   });
 }
 
-function toSelection(row: Record<string, unknown>, marketId: number): SportSelection {
+function toSelection(row: Record<string, unknown>, marketId: number, cdnBase: string): SportSelection {
   let id = selectionNumericIdFromRow(row);
   const codeRaw = row.code ?? row.outcome_code;
   const outcome_code =
@@ -261,7 +282,7 @@ function toSelection(row: Record<string, unknown>, marketId: number): SportSelec
   let game: SportEventSummary | null = null;
   if (gameRaw && typeof gameRaw === "object" && !Array.isArray(gameRaw)) {
     try {
-      game = toEventSummary(gameRaw as Record<string, unknown>);
+      game = toEventSummary(gameRaw as Record<string, unknown>, cdnBase);
     } catch {
       game = null;
     }
@@ -379,7 +400,9 @@ export async function fetchBetMarketsPage(params?: {
   /** When true, sends `include=quote` (crowd pick snapshot per item). */
   include_quote?: boolean;
 }): Promise<PagedMarkets> {
-  const base = await betBase();
+  const { mallAggBaseUrl, mallCdnBaseUrl } = await getServiceOrigins();
+  const base = mallAggBaseUrl.replace(/\/$/, "");
+  const cdnBase = mallCdnBaseUrl.replace(/\/$/, "");
   const qs = new URLSearchParams({
     page: String(params?.page ?? 1),
     per_page: String(params?.per_page ?? 15),
@@ -414,7 +437,7 @@ export async function fetchBetMarketsPage(params?: {
   const items = attachMarketStatusLabels(
     itemsRaw
       .filter((row): row is Record<string, unknown> => !!row && typeof row === "object" && !Array.isArray(row))
-      .map((row) => toMarket(row)),
+      .map((row) => toMarket(row, cdnBase)),
     marketStatusLabelsFromPageData(data),
   );
   const pagination = normalizeProductPagination(pagRaw as Record<string, unknown>);
@@ -422,7 +445,9 @@ export async function fetchBetMarketsPage(params?: {
 }
 
 export async function fetchBetMarketDetail(marketId: number): Promise<SportMarket | null> {
-  const base = await betBase();
+  const { mallAggBaseUrl, mallCdnBaseUrl } = await getServiceOrigins();
+  const base = mallAggBaseUrl.replace(/\/$/, "");
+  const cdnBase = mallCdnBaseUrl.replace(/\/$/, "");
   const res = await fetchWithHttpDebug(`${base}${betMarketPath(marketId)}`, {
     method: "GET",
     headers: betPublicJsonHeaders(),
@@ -436,7 +461,7 @@ export async function fetchBetMarketDetail(marketId: number): Promise<SportMarke
   }
   assertMallSuccess(env);
   const data = requireMallObjectData(env);
-  const market = toMarket(data);
+  const market = toMarket(data, cdnBase);
   return {
     ...market,
     quote: market.quote ?? toMarketQuoteSnapshot(data.quote ?? null),

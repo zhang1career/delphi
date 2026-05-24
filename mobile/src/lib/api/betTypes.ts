@@ -29,6 +29,10 @@ export type SportEventSummary = {
   /** Kickoff Unix ms; `0` if omitted on embedded `game` (e.g. `GET /api/bet/markets`). */
   starts_at: number;
   status: number;
+  /** Resolved from `game.side_a_icon` via mall CDN; `null` → UI placeholder. */
+  side_a_icon_url: string | null;
+  /** Resolved from `game.side_b_icon` via mall CDN; `null` → UI placeholder. */
+  side_b_icon_url: string | null;
 };
 
 export type SportMarket = {

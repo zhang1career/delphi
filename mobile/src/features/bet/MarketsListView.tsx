@@ -2,6 +2,7 @@ import { memo, useCallback, useMemo, useRef, type ReactElement } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   ImageBackground,
   Pressable,
   RefreshControl,
@@ -36,6 +37,46 @@ function marketRowTitle(item: SportMarket): string {
   return `Market #${item.id}`;
 }
 
+const TEAM_ICON_SIZE = 32;
+
+function TeamIconPlaceholder() {
+  return (
+    <View
+      className="rounded-full bg-slate-700 border border-slate-600"
+      style={{ width: TEAM_ICON_SIZE, height: TEAM_ICON_SIZE }}
+    />
+  );
+}
+
+function TeamSideIcon({ uri }: { uri: string | null }) {
+  if (uri === null) {
+    return <TeamIconPlaceholder />;
+  }
+  return (
+    <Image
+      source={{ uri }}
+      style={{ width: TEAM_ICON_SIZE, height: TEAM_ICON_SIZE, borderRadius: TEAM_ICON_SIZE / 2 }}
+      resizeMode="cover"
+    />
+  );
+}
+
+function MarketTeamIcons({
+  sideAUrl,
+  sideBUrl,
+}: {
+  sideAUrl: string | null;
+  sideBUrl: string | null;
+}) {
+  return (
+    <View className="flex-row items-center shrink-0">
+      <TeamSideIcon uri={sideAUrl} />
+      <Text className="text-slate-500 text-[10px] font-semibold uppercase mx-1.5">vs</Text>
+      <TeamSideIcon uri={sideBUrl} />
+    </View>
+  );
+}
+
 const MarketRow = memo(function MarketRow({
   item,
   quote,
@@ -56,9 +97,15 @@ const MarketRow = memo(function MarketRow({
       onPress={() => onPress(item)}
       className="mx-4 mb-3 bg-surface-card rounded-xl border border-surface-border p-4 active:opacity-90"
     >
-      <Text className="text-slate-100 font-semibold text-base leading-snug" numberOfLines={3}>
-        {title}
-      </Text>
+      <View className="flex-row items-start gap-3">
+        <MarketTeamIcons
+          sideAUrl={item.game?.side_a_icon_url ?? null}
+          sideBUrl={item.game?.side_b_icon_url ?? null}
+        />
+        <Text className="flex-1 text-slate-100 font-semibold text-base leading-snug" numberOfLines={3}>
+          {title}
+        </Text>
+      </View>
 
       <MarketQuoteHistoryChart
         marketId={item.id}
