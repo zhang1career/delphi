@@ -2,6 +2,7 @@ import { useRouter } from "expo-router";
 import {
   ActivityIndicator,
   FlatList,
+  Platform,
   Pressable,
   RefreshControl,
   Text,
@@ -11,10 +12,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useOrdersInfiniteQuery } from "@/features/orders/hooks";
 import { betOrderStatusLabel } from "@/lib/api/betTypes";
 import { features } from "@/lib/config";
-
-function formatMinor(n: number): string {
-  return `$${(n / 100).toFixed(2)}`;
-}
+import { buildLoginHref } from "@/lib/auth/postLoginReturn";
+import { useLocale } from "@/i18n/LocaleProvider";
+import { useWebTopTabBarInset } from "@/lib/navigation/useWebTopTabBarInset";
+import { useAuthStore } from "@/stores/authStore";
 
 function formatTime(sec: number): string {
   try {
@@ -24,9 +25,12 @@ function formatTime(sec: number): string {
   }
 }
 
-export default function OrdersScreen() {
+export default function PredictionsScreen() {
   const router = useRouter();
+  const { t } = useLocale();
   const insets = useSafeAreaInsets();
+  const webNavTop = useWebTopTabBarInset();
+  const token = useAuthStore((s) => s.accessToken);
   const {
     data,
     isPending,
@@ -42,15 +46,39 @@ export default function OrdersScreen() {
 
   if (!features.orders) {
     return (
-      <View className="flex-1 items-center justify-center px-6" style={{ paddingTop: insets.top }}>
-        <Text className="text-slate-300 text-center">Orders tab is off in app config features.</Text>
+      <View
+        className="flex-1 items-center justify-center px-6"
+        style={{ paddingTop: Platform.OS === "web" ? webNavTop : insets.top }}
+      >
+        <Text className="text-slate-300 text-center">{t("orders.predictionsOff")}</Text>
+      </View>
+    );
+  }
+
+  if (!token) {
+    return (
+      <View
+        className="flex-1 bg-surface px-6 justify-center"
+        style={{ paddingTop: Platform.OS === "web" ? webNavTop + 8 : insets.top + 8 }}
+      >
+        <Text className="text-xl font-bold text-slate-100 mb-3">{t("orders.title")}</Text>
+        <Text className="text-slate-400 mb-6">{t("orders.signInPrompt")}</Text>
+        <Pressable
+          onPress={() => router.push(buildLoginHref("/(app)/(tabs)/predictions"))}
+          className="bg-brand py-3.5 rounded-xl items-center active:opacity-90"
+        >
+          <Text className="text-white font-semibold text-base">{t("orders.signIn")}</Text>
+        </Pressable>
       </View>
     );
   }
 
   return (
-    <View className="flex-1 bg-surface" style={{ paddingTop: insets.top + 8 }}>
-      <Text className="text-xl font-bold text-slate-100 px-4 mb-2">Orders</Text>
+    <View
+      className="flex-1 bg-surface"
+      style={{ paddingTop: Platform.OS === "web" ? webNavTop + 8 : insets.top + 8 }}
+    >
+      <Text className="text-xl font-bold text-slate-100 px-4 mb-2">{t("orders.title")}</Text>
       <FlatList
         data={rows}
         keyExtractor={(item) => String(item.id)}
@@ -64,7 +92,7 @@ export default function OrdersScreen() {
         ListHeaderComponent={
           isError ? (
             <Text className="text-red-400 px-4 mb-2">
-              {error instanceof Error ? error.message : "Could not load orders."}
+              {error instanceof Error ? error.message : t("orders.loadError")}
             </Text>
           ) : null
         }
@@ -81,7 +109,7 @@ export default function OrdersScreen() {
               <ActivityIndicator color="#a5b4fc" />
             </View>
           ) : (
-            <Text className="text-slate-500 px-4">No orders yet.</Text>
+            <Text className="text-slate-500 px-4">{t("orders.empty")}</Text>
           )
         }
         contentContainerStyle={{ paddingBottom: 32, paddingHorizontal: 16 }}
@@ -90,8 +118,7 @@ export default function OrdersScreen() {
             onPress={() => router.push(`/(app)/order/${item.id}`)}
             className="bg-surface-card rounded-xl border border-surface-border p-4 mb-3 active:opacity-90"
           >
-            <Text className="text-slate-100 font-semibold">Order #{item.id}</Text>
-            <Text className="text-brand-muted text-sm mt-1">{formatMinor(item.total_price)}</Text>
+            <Text className="text-slate-100 font-semibold">#{item.id}</Text>
             <Text className="text-slate-400 text-xs mt-1 capitalize">
               {betOrderStatusLabel(item.status)}
             </Text>

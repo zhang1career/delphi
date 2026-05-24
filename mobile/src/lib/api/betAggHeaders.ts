@@ -1,8 +1,8 @@
 import { useAuthStore } from "@/stores/authStore";
 
 /**
- * bet-agg OpenAPI: `X-User-Access-Token` with raw JWT from Foundation auth.
- * If your gateway normalizes `Authorization: Bearer` to this header, you can map it there instead.
+ * Authenticated bet routes on the API gateway: `Authorization: Bearer <access_token>`
+ * (same JWT as mall-agg). The gateway translates to internal headers for downstream services.
  */
 export function betAggUserAccessHeaders(overrides?: Record<string, string>): HeadersInit {
   const token = useAuthStore.getState().accessToken?.trim();
@@ -11,7 +11,7 @@ export function betAggUserAccessHeaders(overrides?: Record<string, string>): Hea
   }
   return {
     Accept: "application/json",
-    "X-User-Access-Token": token,
+    Authorization: `Bearer ${token}`,
     ...overrides,
   };
 }

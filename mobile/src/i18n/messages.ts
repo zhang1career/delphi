@@ -1,0 +1,246 @@
+import type { AppLocale } from "@/i18n/localeDetect";
+
+type Catalog = Record<string, string>;
+
+const en: Catalog = {
+  "tabs.events": "Events",
+  "tabs.cart": "Cart",
+  "tabs.predictions": "Predictions",
+  "tabs.profile": "Profile",
+  "tabs.about": "About",
+
+  "nav.back": "Back",
+
+  "screens.event": "Event",
+  "screens.predictions": "Predictions",
+  "screens.pickOutcome": "Pick outcome",
+  "screens.product": "Product",
+  "screens.leaderboard": "Leaderboard",
+  "screens.prediction": "Prediction",
+  "screens.checkout": "Checkout",
+
+  "profile.title": "Profile",
+  "profile.signedInAs": "Signed in as",
+  "profile.reputation": "Reputation (skill track record)",
+  "profile.couldNotLoad": "Could not load",
+  "profile.retry": "Retry",
+  "profile.signInReputation": "Sign in to see reputation",
+  "profile.leaderboard": "Leaderboard",
+  "profile.recipes": "Recipes",
+  "profile.commerceRecipe": "Commerce-only layout",
+  "profile.feedRecipe": "Feed-only layout",
+  "profile.signOut": "Sign out",
+
+  "about.title": "About",
+  "about.subtitle":
+    "This page shows deployment documentation: how to call the APIs, authentication, and integration flows. It matches the plain-text document the server publishes for bookmarks and tools.",
+
+  "deployReadme.loadError": "Could not load documentation",
+  "deployReadme.retry": "Retry",
+
+  "auth.signInNavTitle": "Sign in",
+  "auth.signInHeading": "Sign in",
+  "auth.signInSubtitle": "Sign in with your account.",
+  "auth.email": "Email",
+  "auth.password": "Password",
+  "auth.signingIn": "Signing in…",
+  "auth.continue": "Continue",
+  "auth.createAccount": "Create account",
+  "auth.forgotPassword": "Forgot password?",
+  "auth.signInFailed": "Sign in failed",
+  "auth.signedInToast": "Signed in",
+  "auth.recipeHint":
+    "Recipe layouts: app/(examples)/ — also linked from Profile when signed in.",
+  "auth.openCommerceRecipe": "Open commerce recipe",
+  "auth.openFeedRecipe": "Open feed-only recipe",
+
+  "auth.signUpNavTitle": "Create account",
+  "auth.signUpHeading": "Create account",
+
+  "auth.forgotNavTitle": "Forgot password",
+  "auth.resetHeading": "Reset password",
+  "auth.resetSubtitle": "We will send a verification code to your email.",
+
+  "auth.username": "Username",
+  "auth.phone": "Phone",
+  "auth.signingUp": "Signing up…",
+  "auth.signUp": "Sign up",
+  "auth.fillRegisterFields": "Fill username, email, password, and phone.",
+  "auth.verificationPending": "Verification pending",
+  "auth.later": "Later",
+  "auth.enterCodeShort": "Enter code",
+  "auth.verifyFollowEmailHint":
+    "If you already received a code, try again later or follow the instructions in your email.",
+  "auth.ok": "OK",
+  "auth.enterVerificationCode": "Enter verification code",
+  "auth.verifyYourAccount": "Verify your account",
+  "auth.verifySixDigitDesc": "Enter the 6-digit verification code we sent you.",
+  "auth.signUpFailedShort": "Sign up failed",
+  "auth.welcome": "Welcome!",
+  "auth.accountCreatedPleaseSignIn": "Account created. Please sign in.",
+
+  "auth.enterEmailShort": "Enter your email.",
+  "auth.sendingReset": "Sending…",
+  "auth.sendResetLink": "Send reset link",
+  "auth.resetVerifySheetTitle": "Reset password",
+  "auth.resetVerifySheetDesc": "Enter the code from your email and choose a new password.",
+  "auth.updatePassword": "Update password",
+  "auth.newPasswordLabelShort": "New password",
+  "auth.passwordUpdatedToast": "Password updated. You can sign in now.",
+  "auth.requestFailedShort": "Request failed",
+
+  "home.catalogOff": "Catalog is off in app config features.commerce.",
+  "home.events": "Events",
+  "home.markets": "Markets",
+  "home.loadGamesError": "Could not load games.",
+  "home.loadBannerConfigError": "Could not load banner configuration.",
+
+  "orders.predictionsOff": "Predictions list is off in app config.",
+  "orders.title": "Predictions",
+  "orders.signInPrompt": "Sign in to see your submitted predictions.",
+  "orders.signIn": "Sign in",
+  "orders.loadError": "Could not load predictions.",
+  "orders.empty": "No predictions yet.",
+
+  "leaderboard.title": "Leaderboard",
+  "leaderboard.signInPrompt": "Sign in to view reputation rankings.",
+  "leaderboard.signIn": "Sign in",
+  "leaderboard.hint": "Rankings reflect non-redeemable prediction reputation only.",
+  "leaderboard.loadError": "Could not load leaderboard.",
+  "leaderboard.empty": "No rows yet.",
+  "leaderboard.userPrefix": "User",
+
+  "markets.catalogOff": "Catalog is off.",
+  "markets.submitPrediction": "Submit prediction",
+
+  "markets.loadMarketError": "Could not load market.",
+  "markets.noOpenSelections": "No open selections for this market.",
+  "markets.crowdSentiment": "Crowd sentiment",
+  "markets.totalPicks": "Total picks",
+  "markets.quoteAsOf": "Updated",
+
+  "common.emDash": "—",
+};
+
+const zh: Catalog = {
+  "tabs.events": "赛事",
+  "tabs.cart": "购物车",
+  "tabs.predictions": "预测",
+  "tabs.profile": "我的",
+  "tabs.about": "关于",
+
+  "nav.back": "返回",
+
+  "screens.event": "赛事",
+  "screens.predictions": "预测",
+  "screens.pickOutcome": "选择结果",
+  "screens.product": "商品",
+  "screens.leaderboard": "排行榜",
+  "screens.prediction": "预测单",
+  "screens.checkout": "结算",
+
+  "profile.title": "个人中心",
+  "profile.signedInAs": "当前账号",
+  "profile.reputation": "声望（战绩）",
+  "profile.couldNotLoad": "加载失败",
+  "profile.retry": "重试",
+  "profile.signInReputation": "登录后查看声望",
+  "profile.leaderboard": "排行榜",
+  "profile.recipes": "示例布局",
+  "profile.commerceRecipe": "电商示例",
+  "profile.feedRecipe": "动态流示例",
+  "profile.signOut": "退出登录",
+
+  "about.title": "关于",
+  "about.subtitle":
+    "本页展示部署说明文档：如何调用接口、鉴权方式与接入流程；与同域名下站点发布的纯文本文档一致，便于收藏与工具读取。",
+
+  "deployReadme.loadError": "无法加载文档",
+  "deployReadme.retry": "重试",
+
+  "auth.signInNavTitle": "登录",
+  "auth.signInHeading": "登录",
+  "auth.signInSubtitle": "使用账号登录。",
+  "auth.email": "邮箱",
+  "auth.password": "密码",
+  "auth.signingIn": "登录中…",
+  "auth.continue": "继续",
+  "auth.createAccount": "注册账号",
+  "auth.forgotPassword": "忘记密码？",
+  "auth.signInFailed": "登录失败",
+  "auth.signedInToast": "已登录",
+  "auth.recipeHint": "示例布局位于 app/(examples)/ — 登录后也可从「我的」进入。",
+  "auth.openCommerceRecipe": "打开电商示例",
+  "auth.openFeedRecipe": "打开动态流示例",
+
+  "auth.signUpNavTitle": "注册账号",
+  "auth.signUpHeading": "注册账号",
+
+  "auth.forgotNavTitle": "忘记密码",
+  "auth.resetHeading": "重置密码",
+  "auth.resetSubtitle": "我们将向您的邮箱发送验证码。",
+
+  "auth.username": "用户名",
+  "auth.phone": "手机号",
+  "auth.signingUp": "注册中…",
+  "auth.signUp": "注册",
+  "auth.fillRegisterFields": "请填写用户名、邮箱、密码和手机号。",
+  "auth.verificationPending": "等待验证",
+  "auth.later": "稍后",
+  "auth.enterCodeShort": "输入验证码",
+  "auth.verifyFollowEmailHint": "若已收到验证码，请稍后再试或按邮件说明操作。",
+  "auth.ok": "确定",
+  "auth.enterVerificationCode": "输入验证码",
+  "auth.verifyYourAccount": "验证账号",
+  "auth.verifySixDigitDesc": "请输入我们发送给您的 6 位验证码。",
+  "auth.signUpFailedShort": "注册失败",
+  "auth.welcome": "欢迎！",
+  "auth.accountCreatedPleaseSignIn": "账号已创建，请登录。",
+
+  "auth.enterEmailShort": "请输入邮箱。",
+  "auth.sendingReset": "发送中…",
+  "auth.sendResetLink": "发送重置链接",
+  "auth.resetVerifySheetTitle": "重置密码",
+  "auth.resetVerifySheetDesc": "请输入邮件中的验证码并设置新密码。",
+  "auth.updatePassword": "更新密码",
+  "auth.newPasswordLabelShort": "新密码",
+  "auth.passwordUpdatedToast": "密码已更新，可以登录了。",
+  "auth.requestFailedShort": "请求失败",
+
+  "home.catalogOff": "应用配置已关闭目录功能（features.commerce）。",
+  "home.events": "赛事",
+  "home.markets": "盘口",
+  "home.loadGamesError": "赛事加载失败。",
+  "home.loadBannerConfigError": "Banner 配置加载失败。",
+
+  "orders.predictionsOff": "应用配置已关闭预测列表。",
+  "orders.title": "预测",
+  "orders.signInPrompt": "登录后查看已提交的预测。",
+  "orders.signIn": "登录",
+  "orders.loadError": "预测列表加载失败。",
+  "orders.empty": "暂无预测记录。",
+
+  "leaderboard.title": "排行榜",
+  "leaderboard.signInPrompt": "登录后查看声望排名。",
+  "leaderboard.signIn": "登录",
+  "leaderboard.hint": "排名反映不可兑现的预测声望（仅供参考）。",
+  "leaderboard.loadError": "排行榜加载失败。",
+  "leaderboard.empty": "暂无数据。",
+  "leaderboard.userPrefix": "用户",
+
+  "markets.catalogOff": "目录未开启。",
+  "markets.submitPrediction": "提交预测",
+
+  "markets.loadMarketError": "盘口加载失败。",
+  "markets.noOpenSelections": "该盘口暂无可选结果。",
+  "markets.crowdSentiment": "大众倾向",
+  "markets.totalPicks": "总预测数",
+  "markets.quoteAsOf": "更新于",
+
+  "common.emDash": "—",
+};
+
+export const MESSAGE_CATALOGS: Record<AppLocale, Catalog> = {
+  en,
+  zh,
+};

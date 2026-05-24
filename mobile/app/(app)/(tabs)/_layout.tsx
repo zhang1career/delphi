@@ -1,9 +1,13 @@
 import { Tabs } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { BetTabBar } from "./BetTabBar";
+import { Platform } from "react-native";
+import { useLocale } from "@/i18n/LocaleProvider";
+import { BetTabBar } from "@/lib/navigation/BetTabBar";
 import { features } from "@/lib/config";
 
 export default function TabLayout() {
+  const { t } = useLocale();
+
   return (
     <Tabs
       tabBar={(props) => <BetTabBar {...props} />}
@@ -18,7 +22,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Sports",
+          title: t("tabs.events"),
+          tabBarLabel: t("tabs.events"),
           headerShown: false,
           href: features.commerce ? undefined : null,
           tabBarIcon: ({ color, size }) => (
@@ -29,7 +34,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="cart"
         options={{
-          title: "Cart",
+          title: t("tabs.cart"),
+          tabBarLabel: t("tabs.cart"),
           headerShown: false,
           href: features.cart ? undefined : null,
           tabBarIcon: ({ color, size }) => (
@@ -38,10 +44,10 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="orders"
+        name="predictions"
         options={{
-          title: "Orders",
-          /** Nested `orders/[id]` stack: hide tab header so there is no Back row; list uses in-screen title. */
+          title: t("tabs.predictions"),
+          tabBarLabel: t("tabs.predictions"),
           headerShown: false,
           href: features.orders ? undefined : null,
           tabBarIcon: ({ color, size }) => (
@@ -52,10 +58,23 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: "Profile",
+          title: t("tabs.profile"),
+          tabBarLabel: t("tabs.profile"),
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person-circle-outline" color={color} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="about"
+        options={{
+          title: t("tabs.about"),
+          tabBarLabel: t("tabs.about"),
+          headerShown: false,
+          href: Platform.OS === "web" ? undefined : null,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="information-circle-outline" color={color} size={size} />
           ),
         }}
       />

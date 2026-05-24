@@ -1,4 +1,6 @@
+import { jsonBearerHeaders } from "@/lib/api/bearerRequestHeaders";
 import {
+  optionalAccessTokenFromData,
   optionalEventIdFromData,
   parseUserApiJson,
   requireEventIdFromData,
@@ -50,7 +52,12 @@ export async function registerAccount(params: RegisterParams): Promise<RegisterR
     const eventIdOpt = optionalEventIdFromData(env.data);
     const detail = typeof env.detail === "string" ? env.detail : undefined;
     if (env.errorCode === PENDING_VERIFICATION_ERROR_CODE) {
-      throw new PendingVerificationError(msg, env.errorCode, { eventId: eventIdOpt, detail });
+      const accessToken = optionalAccessTokenFromData(env.data);
+      throw new PendingVerificationError(msg, env.errorCode, {
+        eventId: eventIdOpt,
+        detail,
+        accessToken,
+      });
     }
     throw new Error(msg);
   }
@@ -60,12 +67,20 @@ export async function registerAccount(params: RegisterParams): Promise<RegisterR
   };
 }
 
-/** `POST .../api/user-agg/register/verify` with JSON body `{ event_id, code }`. */
-export async function verifyRegisterCode(eventId: number, code: string): Promise<LoginSession | null> {
+/** `POST .../api/user-agg/register/verify` with JSON body `{ event_id, code }` and Bearer access token. */
+export async function verifyRegisterCode(
+  eventId: number,
+  code: string,
+  accessToken: string,
+): Promise<LoginSession | null> {
+  const token = accessToken.trim();
+  if (!token) {
+    throw new Error("Missing access token for registration verification");
+  }
   const { userAggBaseUrl: base } = await getServiceOrigins();
   const res = await fetchWithHttpDebug(`${base}${USER_REGISTER_VERIFY_PATH}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: jsonBearerHeaders(token, { "Content-Type": "application/json" }),
     body: JSON.stringify({ event_id: eventId, code }),
   });
   const text = await res.text();

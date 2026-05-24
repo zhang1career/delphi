@@ -14,24 +14,23 @@ const { width } = Dimensions.get("window");
 const BANNER_H = 160;
 const PAGE = Math.min(width - 32, 400);
 
-export type BannerSlide = { id: string; title: string; imageUrl: string };
-
-const defaultSlides: BannerSlide[] = [
-  { id: "b1", title: "Spring drop", imageUrl: "https://picsum.photos/seed/b1/800/400" },
-  { id: "b2", title: "Audio week", imageUrl: "https://picsum.photos/seed/b2/800/400" },
-  { id: "b3", title: "Desk setup", imageUrl: "https://picsum.photos/seed/b3/800/400" },
-];
+/** `main_media` from the games API when present; resolved to `/api/cdn/…` URL on the markets screen. */
+export type BannerSlide = { id: string; title: string; imageUrl: string; mainMedia?: string };
 
 export function BannerCarousel({
-  slides = defaultSlides,
+  slides,
   onSlidePress,
 }: {
-  slides?: BannerSlide[];
+  slides: BannerSlide[];
   /** When set, each slide opens as a Pressable target (e.g. navigate to sport event). */
   onSlidePress?: (slide: BannerSlide) => void;
 }) {
   const [index, setIndex] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
+
+  if (slides.length === 0) {
+    return null;
+  }
 
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const x = e.nativeEvent.contentOffset.x;

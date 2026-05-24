@@ -7,17 +7,20 @@ import {
   ActivityIndicator,
   FlatList,
   Image,
+  Platform,
   Pressable,
   Text,
   TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useBetPointsBalanceQuery } from "@/features/orders/hooks";
+import { useWebTopTabBarInset } from "@/lib/navigation/useWebTopTabBarInset";
+import { useMallPointsBalanceQuery } from "@/features/orders/hooks";
 import { checkoutMall, createMallOrder } from "@/lib/api/mallOrdersApi";
 import { MallApiError } from "@/lib/api/mallEnvelope";
 import { getCommerceRepo } from "@/lib/api/index";
 import { features } from "@/lib/config";
+import { MallUnauthorizedRedirectError } from "@/lib/auth/mallSessionUnauthorized";
 import { useToast } from "@/lib/notifications/toast";
 import { useAuthStore } from "@/stores/authStore";
 import { useCartStore, type CartLine } from "@/stores/cartStore";
@@ -57,6 +60,7 @@ function parsePointsMinorInput(raw: string, balanceMinor: number): number {
 export default function CartScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const webNavTop = useWebTopTabBarInset();
   const toast = useToast();
   const queryClient = useQueryClient();
   const token = useAuthStore((s) => s.accessToken);
@@ -67,7 +71,7 @@ export default function CartScreen() {
   const [pointsInput, setPointsInput] = useState("");
 
   const { data: pointsData, isFetching: pointsFetching, refetch: refetchPoints } =
-    useBetPointsBalanceQuery();
+    useMallPointsBalanceQuery();
 
   useFocusEffect(
     useCallback(() => {
@@ -112,24 +116,29 @@ export default function CartScreen() {
     onSuccess: (result) => {
       clear();
       setPointsInput("");
-      queryClient.invalidateQueries({ queryKey: ["bet-orders"] });
-      queryClient.invalidateQueries({ queryKey: ["bet-points"] });
+      queryClient.invalidateQueries({ queryKey: ["mall-points"] });
       toast.show("订单已创建");
       const prepayJson = encodeURIComponent(JSON.stringify(result.prepay));
       router.push(`/(app)/order/${result.order.id}?prepayJson=${prepayJson}`);
     },
     onError: (e) => {
-      if (e instanceof MallApiError) {
-        toast.show(e.message.trim() || `请求失败 (${e.errorCode})`);
+      if (e instanceof MallUnauthorizedRedirectError) {
         return;
       }
-      toast.show(e instanceof Error ? e.message : "下单失败");
+      if (e instanceof MallApiError) {
+        toast.show(e.message.trim() || `请求失败 (${e.errorCode})`, { variant: "error" });
+        return;
+      }
+      toast.show(e instanceof Error ? e.message : "下单失败", { variant: "error" });
     },
   });
 
   if (!features.cart) {
     return (
-      <View className="flex-1 items-center justify-center px-6" style={{ paddingTop: insets.top }}>
+      <View
+        className="flex-1 items-center justify-center px-6"
+        style={{ paddingTop: Platform.OS === "web" ? webNavTop : insets.top }}
+      >
         <Text className="text-slate-300 text-center">购物车已在应用配置中关闭。</Text>
       </View>
     );
@@ -139,7 +148,10 @@ export default function CartScreen() {
 
   return (
     <View className="flex-1 bg-surface">
-      <View className="px-4 pb-2" style={{ paddingTop: insets.top + 16 }}>
+      <View
+        className="px-4 pb-2"
+        style={{ paddingTop: Platform.OS === "web" ? webNavTop + 16 : insets.top + 16 }}
+      >
         <Text className="text-xl font-bold text-slate-100">Cart</Text>
       </View>
 

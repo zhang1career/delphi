@@ -1,13 +1,13 @@
+import { useNavigation } from "@react-navigation/native";
 import { useRouter } from "expo-router";
-import { useState } from "react";
-
-export const options = { title: "Forgot password" };
+import { useLayoutEffect, useState } from "react";
 import { Alert, Text, View } from "react-native";
 import { Button } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
 import { VerificationCodeBottomSheet } from "@/components/ui/VerificationCodeBottomSheet";
 import { PendingVerificationError } from "@/lib/api/pendingVerificationError";
 import { requestPasswordReset, verifyResetPassword } from "@/lib/api/resetPassword";
+import { useLocale } from "@/i18n/LocaleProvider";
 import { useToast } from "@/lib/notifications/toast";
 
 const NOTICE_CHANNEL_EMAIL = "email";
@@ -16,11 +16,17 @@ const NAV_DELAY_MS = 280;
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
+  const { t } = useLocale();
   const toast = useToast();
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [verifyOpen, setVerifyOpen] = useState(false);
   const [pendingEventId, setPendingEventId] = useState<number | null>(null);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({ title: t("auth.forgotNavTitle") });
+  }, [navigation, t]);
 
   const openVerifySheet = () => {
     if (pendingEventId == null) return;
@@ -29,23 +35,23 @@ export default function ForgotPasswordScreen() {
 
   return (
     <View className="flex-1 px-6 pt-4">
-      <Text className="text-2xl font-bold text-slate-100 mb-2">Reset password</Text>
-      <Text className="text-slate-400 mb-6">We will send a verification code to your email.</Text>
+      <Text className="text-2xl font-bold text-slate-100 mb-2">{t("auth.resetHeading")}</Text>
+      <Text className="text-slate-400 mb-6">{t("auth.resetSubtitle")}</Text>
       <TextField
-        label="Email"
+        label={t("auth.email")}
         autoCapitalize="none"
         keyboardType="email-address"
         value={email}
         onChangeText={setEmail}
       />
       <Button
-        title={submitting ? "Sending…" : "Send reset link"}
+        title={submitting ? t("auth.sendingReset") : t("auth.sendResetLink")}
         disabled={submitting}
         className="mt-2"
         onPress={async () => {
           const target = email.trim();
           if (!target) {
-            toast.show("Enter your email.");
+            toast.show(t("auth.enterEmailShort"));
             return;
           }
           setSubmitting(true);
@@ -58,22 +64,18 @@ export default function ForgotPasswordScreen() {
             setVerifyOpen(true);
           } catch (e) {
             if (e instanceof PendingVerificationError) {
-              const title = "Verification pending";
+              const title = t("auth.verificationPending");
               if (e.eventId != null) {
                 setPendingEventId(e.eventId);
                 Alert.alert(title, e.message, [
-                  { text: "Later", style: "cancel" },
-                  { text: "Enter code", onPress: () => setVerifyOpen(true) },
+                  { text: t("auth.later"), style: "cancel" },
+                  { text: t("auth.enterCodeShort"), onPress: () => setVerifyOpen(true) },
                 ]);
               } else {
-                Alert.alert(
-                  title,
-                  `${e.message}\n\nIf you already received a code, try again later or follow the instructions in your email.`,
-                  [{ text: "OK" }],
-                );
+                Alert.alert(title, `${e.message}\n\n${t("auth.verifyFollowEmailHint")}`, [{ text: t("auth.ok") }]);
               }
             } else {
-              toast.show(e instanceof Error ? e.message : "Request failed");
+              toast.show(e instanceof Error ? e.message : t("auth.requestFailedShort"), { variant: "error" });
             }
           } finally {
             setSubmitting(false);
@@ -81,16 +83,16 @@ export default function ForgotPasswordScreen() {
         }}
       />
       {pendingEventId != null ? (
-        <Button title="Enter verification code" variant="ghost" className="mt-2" onPress={openVerifySheet} />
+        <Button title={t("auth.enterVerificationCode")} variant="ghost" className="mt-2" onPress={openVerifySheet} />
       ) : null}
       <VerificationCodeBottomSheet
         visible={verifyOpen}
         onClose={() => setVerifyOpen(false)}
-        title="Reset password"
-        description="Enter the code from your email and choose a new password."
-        submitLabel="Update password"
+        title={t("auth.resetVerifySheetTitle")}
+        description={t("auth.resetVerifySheetDesc")}
+        submitLabel={t("auth.updatePassword")}
         requireNewPassword
-        newPasswordLabel="New password"
+        newPasswordLabel={t("auth.newPasswordLabelShort")}
         onSubmit={async ({ code, newPassword }) => {
           if (pendingEventId == null) {
             throw new Error("Reset session expired. Request a new link.");
@@ -106,7 +108,7 @@ export default function ForgotPasswordScreen() {
           setPendingEventId(null);
           setVerifyOpen(false);
           setTimeout(() => {
-            toast.show("Password updated. You can sign in now.");
+            toast.show(t("auth.passwordUpdatedToast"));
             router.replace("/(auth)/login");
           }, NAV_DELAY_MS);
         }}

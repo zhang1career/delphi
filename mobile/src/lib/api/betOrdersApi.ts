@@ -1,21 +1,29 @@
 import { betAggUserAccessHeaders, betAggUserAccessJsonHeaders } from "./betAggHeaders";
-import type {
-  BetOrderFull,
-  BetOrderLine,
-  BetOrderListResult,
-  BetOrderSummary,
-} from "./betTypes";
-import { BET_CHECKOUT_PATH, BET_ORDERS_PATH, BET_POINTS_PATH, betOrderPath } from "./betPaths";
+import {
+  BET_LEADERBOARD_PATH,
+  BET_ORDERS_PATH,
+  BET_PLACE_PATH,
+  BET_POINTS_PATH,
+  BET_SNOWFLAKE_PATH,
+  betOrderPath,
+} from "./betPaths";
 import {
   assertMallSuccess,
   assertMallSuccessHttp,
   MallApiError,
+  type MallApiEnvelope,
   readMallEnvelope,
   requireMallObjectData,
 } from "./mallEnvelope";
 import { normalizeOrderPagination } from "./mallPagination";
 import { fetchWithHttpDebug } from "@/lib/httpDebug";
+import { snowflakeAccessKey } from "@/lib/config";
 import { getServiceOrigins } from "@/lib/serviceOrigins";
+import {
+  MallUnauthorizedRedirectError,
+  redirectIfMallSessionUnauthorized,
+} from "@/lib/auth/mallSessionUnauthorized";
+import { betOrderStatusLabel, type BetOrderFull, type BetOrderLine, type BetOrderListResult, type BetOrderSummary, type BetSubmitLine, type LeaderboardListResult, type LeaderboardRow, type ReputationData } from "./betTypes";
 
 async function betBase(): Promise<string> {
   const { mallAggBaseUrl } = await getServiceOrigins();
@@ -37,52 +45,114 @@ function mallFiniteInt(value: unknown): number | null {
   return null;
 }
 
-function mallUnixSeconds(value: unknown): number | null {
-  const asInt = mallFiniteInt(value);
-  if (asInt !== null) {
-    return asInt;
+/** Order `ct` / `ut` may be Unix seconds or milliseconds (large integers). */
+function mallOrderEpochSeconds(value: unknown): number | null {
+  const n = mallFiniteInt(value);
+  if (n !== null) {
+    if (n > 1_000_000_000_000) {
+      return Math.floor(n / 1000);
+    }
+    return n;
   }
   if (typeof value === "string") {
     const ms = Date.parse(value);
-    if (!Number.isFinite(ms)) {
-      return null;
+    if (Number.isFinite(ms)) {
+      return Math.floor(ms / 1000);
     }
-    return Math.floor(ms / 1000);
   }
   return null;
 }
 
-function pointsBalanceMinorFromDataPayload(root: Record<string, unknown>): number {
-  const bal = mallFiniteInt(root.balance_minor ?? root.balanceMinor);
-  if (bal !== null && bal >= 0) {
-    return bal;
+function selectionString(row: Record<string, unknown>): string | null {
+  const s = row.selection;
+  if (typeof s === "string" && s.trim().length > 0) {
+    return s.trim();
   }
-  const inner = root.data;
-  if (inner && typeof inner === "object" && !Array.isArray(inner)) {
-    const nested = mallFiniteInt((inner as Record<string, unknown>).balance_minor);
-    if (nested !== null && nested >= 0) {
-      return nested;
+  if (s && typeof s === "object" && !Array.isArray(s)) {
+    const o = s as Record<string, unknown>;
+    for (const key of ["code", "outcome_code"] as const) {
+      const v = o[key];
+      if (typeof v === "string" && v.trim().length > 0) {
+        return v.trim();
+      }
     }
   }
-  return 0;
+  return null;
 }
 
-function toBetLine(row: Record<string, unknown>): BetOrderLine {
-  const kid = mallFiniteInt(row.kid);
-  const stake_points = mallFiniteInt(row.stake_points);
-  if (kid === null || stake_points === null) {
-    throw new Error("Malformed bet line");
+function pickLabel(row: Record<string, unknown>): string | undefined {
+  const pl = row.pick_label;
+  if (typeof pl === "string" && pl.trim().length > 0) {
+    return pl.trim();
   }
-  const decimal_odds_millis = mallFiniteInt(row.decimal_odds_millis) ?? undefined;
-  const potential_return_points = mallFiniteInt(row.potential_return_points) ?? undefined;
-  const result = mallFiniteInt(row.result) ?? undefined;
+  return undefined;
+}
+
+/** `_dict` arrays: `{ k, v }` or `{ name, value }` style entries. */
+function numericEnumLabelMap(rows: unknown): Map<number, string> | undefined {
+  if (!Array.isArray(rows)) {
+    return undefined;
+  }
+  const map = new Map<number, string>();
+  for (const row of rows) {
+    if (!row || typeof row !== "object" || Array.isArray(row)) {
+      continue;
+    }
+    const o = row as Record<string, unknown>;
+    const v = mallFiniteInt(o.v ?? o.value);
+    const labelRaw = o.k ?? o.name;
+    if (v === null || typeof labelRaw !== "string" || !labelRaw.trim()) {
+      continue;
+    }
+    map.set(v, labelRaw.trim());
+  }
+  return map.size > 0 ? map : undefined;
+}
+
+function dictMapsFromRoot(root: Record<string, unknown>): {
+  orderStatus?: Map<number, string>;
+  lineResult?: Map<number, string>;
+} {
+  const d = root._dict;
+  if (!d || typeof d !== "object" || Array.isArray(d)) {
+    return {};
+  }
+  const dr = d as Record<string, unknown>;
   return {
-    kid,
-    stake_points,
-    ...(decimal_odds_millis !== undefined ? { decimal_odds_millis } : {}),
-    ...(potential_return_points !== undefined ? { potential_return_points } : {}),
-    ...(row.odds_snapshot !== undefined ? { odds_snapshot: row.odds_snapshot } : {}),
+    orderStatus: numericEnumLabelMap(dr.bet_order_status),
+    lineResult: numericEnumLabelMap(dr.order_item_result),
+  };
+}
+
+function mergeDictSources(...roots: Record<string, unknown>[]): {
+  orderStatus?: Map<number, string>;
+  lineResult?: Map<number, string>;
+} {
+  for (const root of roots) {
+    const { orderStatus, lineResult } = dictMapsFromRoot(root);
+    if (orderStatus !== undefined || lineResult !== undefined) {
+      return { orderStatus, lineResult };
+    }
+  }
+  return {};
+}
+
+function toBetLine(row: Record<string, unknown>, lineResult?: Map<number, string>): BetOrderLine {
+  const market_id = mallFiniteInt(row.market_id);
+  const selection = selectionString(row);
+  if (market_id === null || selection === null) {
+    throw new Error("Malformed prediction line");
+  }
+  const result = mallFiniteInt(row.result) ?? undefined;
+  const pl = pickLabel(row);
+  return {
+    market_id,
+    selection,
+    ...(pl !== undefined ? { pick_label: pl } : {}),
     ...(result !== undefined ? { result } : {}),
+    ...(result !== undefined && lineResult?.get(result) !== undefined
+      ? { result_label: lineResult.get(result) }
+      : {}),
   };
 }
 
@@ -103,13 +173,12 @@ function toBetOrderSummary(row: Record<string, unknown>): BetOrderSummary {
   const id = mallFiniteInt(row.id);
   const uid = mallFiniteInt(row.uid);
   const status = mallFiniteInt(row.status);
-  const total = mallFiniteInt(row.total_price);
-  const ct = mallUnixSeconds(row.ct);
-  const ut = mallUnixSeconds(row.ut);
-  if (id === null || uid === null || status === null || total === null || ct === null || ut === null) {
-    throw new Error("Malformed bet order summary");
+  const ct = mallOrderEpochSeconds(row.ct);
+  const ut = mallOrderEpochSeconds(row.ut);
+  if (id === null || uid === null || status === null || ct === null || ut === null) {
+    throw new Error("Malformed prediction order summary");
   }
-  return { id, uid, status, total_price: total, ct, ut };
+  return { id, uid, status, ct, ut };
 }
 
 function parseBetOrderEnvelopeData(envData: Record<string, unknown>): BetOrderFull {
@@ -119,30 +188,29 @@ function parseBetOrderEnvelopeData(envData: Record<string, unknown>): BetOrderFu
   if (Array.isArray(linesRawFromRow)) {
     merged.lines = linesRawFromRow;
   }
-  return toBetOrderFull(merged);
+  const dict = mergeDictSources(envData, merged, row);
+  return toBetOrderFull(merged, dict);
 }
 
-function toBetOrderFull(data: Record<string, unknown>): BetOrderFull {
+function toBetOrderFull(
+  data: Record<string, unknown>,
+  dict: { orderStatus?: Map<number, string>; lineResult?: Map<number, string> },
+): BetOrderFull {
   const base = toBetOrderSummary(data);
   const linesRaw = data.lines;
   if (!Array.isArray(linesRaw)) {
-    throw new Error("Malformed bet order detail");
+    throw new Error("Malformed prediction order detail");
   }
+  const lineResultMap = dict.lineResult;
   const lines = linesRaw
     .filter((r): r is Record<string, unknown> => !!r && typeof r === "object" && !Array.isArray(r))
-    .map((r) => toBetLine(r));
-  const points_deduct = mallFiniteInt(data.points_deduct_minor) ?? 0;
-  const cash_payable = mallFiniteInt(data.cash_payable_minor) ?? 0;
-  const checkout_phase =
-    typeof data.checkout_phase === "string" ? data.checkout_phase : undefined;
+    .map((r) => toBetLine(r, lineResultMap));
+  const status_label =
+    dict.orderStatus?.get(base.status) ?? betOrderStatusLabel(base.status);
   return {
     ...base,
-    points_deduct_minor: points_deduct >= 0 ? points_deduct : 0,
-    cash_payable_minor: cash_payable >= 0 ? cash_payable : 0,
     lines,
-    ...(data.ext_inventory !== undefined ? { ext_inventory: data.ext_inventory } : {}),
-    ...(data.ext_id !== undefined ? { ext_id: data.ext_id } : {}),
-    ...(checkout_phase !== undefined ? { checkout_phase } : {}),
+    status_label,
   };
 }
 
@@ -161,6 +229,9 @@ export async function fetchBetOrdersPage(params?: {
   });
   const env = await readMallEnvelope(res);
   if (res.status === 401) {
+    if (redirectIfMallSessionUnauthorized(res, env)) {
+      throw new MallUnauthorizedRedirectError();
+    }
     throw new Error(env.message?.trim() || "Unauthorized");
   }
   if (!res.ok) {
@@ -171,7 +242,7 @@ export async function fetchBetOrdersPage(params?: {
   const itemsRaw = data.items as unknown;
   const pagRaw = data.pagination as unknown;
   if (!Array.isArray(itemsRaw) || !pagRaw || typeof pagRaw !== "object" || Array.isArray(pagRaw)) {
-    throw new Error("Malformed bet order list");
+    throw new Error("Malformed prediction order list");
   }
   const items = itemsRaw
     .filter((row): row is Record<string, unknown> => !!row && typeof row === "object" && !Array.isArray(row))
@@ -195,6 +266,9 @@ export async function fetchBetOrder(orderId: string): Promise<BetOrderFull | nul
     return null;
   }
   if (res.status === 401) {
+    if (redirectIfMallSessionUnauthorized(res, env)) {
+      throw new MallUnauthorizedRedirectError();
+    }
     throw new Error(env.message?.trim() || "Unauthorized");
   }
   if (!res.ok) {
@@ -205,15 +279,69 @@ export async function fetchBetOrder(orderId: string): Promise<BetOrderFull | nul
   return parseBetOrderEnvelopeData(data);
 }
 
-export async function createBetDraftOrder(lines: { kid: number; stake_points: number }[]): Promise<BetOrderFull> {
-  const base = await betBase();
-  const res = await fetchWithHttpDebug(`${base}${BET_ORDERS_PATH}`, {
+function parseBetSubmitResponseData(data: Record<string, unknown>): BetOrderFull {
+  const orderRaw = data.order;
+  if (orderRaw && typeof orderRaw === "object" && !Array.isArray(orderRaw)) {
+    const combined: Record<string, unknown> = { ...data, ...orderRaw };
+    return parseBetOrderEnvelopeData(combined);
+  }
+  return parseBetOrderEnvelopeData(data);
+}
+
+function snowflakeRequestIdFromEnvelope(env: MallApiEnvelope, fallbackMessage: string): string {
+  const raw = env.data;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new Error(env.message?.trim() || fallbackMessage);
+  }
+  const id = (raw as Record<string, unknown>).id;
+  if (typeof id === "string" && id.trim().length > 0) {
+    return id.trim();
+  }
+  throw new Error(env.message?.trim() || fallbackMessage);
+}
+
+async function fetchBetSnowflakeRequestId(base: string): Promise<string> {
+  if (!snowflakeAccessKey) {
+    throw new Error("Missing SF_SNOWFLAKE_ACCESS_KEY");
+  }
+  const res = await fetchWithHttpDebug(`${base}${BET_SNOWFLAKE_PATH}`, {
     method: "POST",
     headers: betAggUserAccessJsonHeaders(),
+    body: JSON.stringify({ access_key: snowflakeAccessKey }),
+  });
+  const env = await readMallEnvelope(res);
+  if (res.status === 401) {
+    if (redirectIfMallSessionUnauthorized(res, env)) {
+      throw new MallUnauthorizedRedirectError();
+    }
+    throw new Error(env.message?.trim() || "Unauthorized");
+  }
+  assertMallSuccessHttp(env, res.status);
+  if (!res.ok) {
+    throw new MallApiError(env.message?.trim() || `HTTP ${res.status}`, env.errorCode, res.status);
+  }
+  return snowflakeRequestIdFromEnvelope(env, "Malformed snowflake id response");
+}
+
+/**
+ * `POST /api/bet/place` — single line accepted: `{ lines: [{ market_id, outcome_code }] }`.
+ */
+export async function submitBetOrder(lines: BetSubmitLine[]): Promise<BetOrderFull> {
+  if (lines.length !== 1) {
+    throw new Error("Submit expects exactly one prediction line");
+  }
+  const base = await betBase();
+  const xRequestId = await fetchBetSnowflakeRequestId(base);
+  const res = await fetchWithHttpDebug(`${base}${BET_PLACE_PATH}`, {
+    method: "POST",
+    headers: betAggUserAccessJsonHeaders({ "X-Request-Id": xRequestId }),
     body: JSON.stringify({ lines }),
   });
   const env = await readMallEnvelope(res);
   if (res.status === 401) {
+    if (redirectIfMallSessionUnauthorized(res, env)) {
+      throw new MallUnauthorizedRedirectError();
+    }
     throw new Error(env.message?.trim() || "Unauthorized");
   }
   assertMallSuccessHttp(env, res.status);
@@ -221,53 +349,10 @@ export async function createBetDraftOrder(lines: { kid: number; stake_points: nu
     throw new MallApiError(env.message?.trim() || `HTTP ${res.status}`, env.errorCode, res.status);
   }
   const data = requireMallObjectData(env);
-  return parseBetOrderEnvelopeData(data);
+  return parseBetSubmitResponseData(data);
 }
 
-export type BetCheckoutResponse = {
-  order: BetOrderFull;
-  prepay: Record<string, unknown>;
-};
-
-export async function checkoutBetOrder(input: { order_id: number; points_minor?: number }): Promise<BetCheckoutResponse> {
-  const base = await betBase();
-  const body: Record<string, unknown> = { order_id: input.order_id };
-  const pm = input.points_minor;
-  if (pm !== undefined && pm > 0) {
-    body.points_minor = pm;
-  }
-  const res = await fetchWithHttpDebug(`${base}${BET_CHECKOUT_PATH}`, {
-    method: "POST",
-    headers: betAggUserAccessJsonHeaders(),
-    body: JSON.stringify(body),
-  });
-  const env = await readMallEnvelope(res);
-  if (res.status === 401) {
-    throw new Error(env.message?.trim() || "Unauthorized");
-  }
-  assertMallSuccessHttp(env, res.status);
-  if (!res.ok) {
-    throw new MallApiError(env.message?.trim() || `HTTP ${res.status}`, env.errorCode, res.status);
-  }
-  const data = requireMallObjectData(env);
-  const orderRaw = data.order;
-  if (!orderRaw || typeof orderRaw !== "object" || Array.isArray(orderRaw)) {
-    throw new Error("Malformed checkout: order");
-  }
-  const order = parseBetOrderEnvelopeData(orderRaw as Record<string, unknown>);
-  const prepayRaw = data.prepay;
-  const prepay =
-    prepayRaw && typeof prepayRaw === "object" && !Array.isArray(prepayRaw)
-      ? (prepayRaw as Record<string, unknown>)
-      : {};
-  return { order, prepay };
-}
-
-export type PointsBalanceData = {
-  balance_minor: number;
-};
-
-export async function fetchBetPointsBalance(): Promise<PointsBalanceData> {
+export async function fetchBetReputation(): Promise<ReputationData> {
   const base = await betBase();
   const res = await fetchWithHttpDebug(`${base}${BET_POINTS_PATH}`, {
     method: "GET",
@@ -275,9 +360,68 @@ export async function fetchBetPointsBalance(): Promise<PointsBalanceData> {
   });
   const env = await readMallEnvelope(res);
   if (res.status === 401) {
+    if (redirectIfMallSessionUnauthorized(res, env)) {
+      throw new MallUnauthorizedRedirectError();
+    }
     throw new Error(env.message?.trim() || "Unauthorized");
   }
   assertMallSuccessHttp(env, res.status);
   const data = requireMallObjectData(env);
-  return { balance_minor: pointsBalanceMinorFromDataPayload(data) };
+  const score = mallFiniteInt(data.score);
+  if (score === null) {
+    throw new Error("Malformed reputation response");
+  }
+  return { score };
+}
+
+function toLeaderboardRow(row: Record<string, unknown>): LeaderboardRow {
+  const rank = mallFiniteInt(row.rank);
+  const uid = mallFiniteInt(row.uid);
+  const score = mallFiniteInt(row.score);
+  if (rank === null || uid === null || score === null) {
+    throw new Error("Malformed leaderboard row");
+  }
+  return { rank, uid, score };
+}
+
+export async function fetchBetLeaderboardPage(params?: {
+  page?: number;
+  per_page?: number;
+}): Promise<LeaderboardListResult> {
+  const base = await betBase();
+  const qs = new URLSearchParams({
+    page: String(params?.page ?? 1),
+    per_page: String(params?.per_page ?? 50),
+  });
+  const res = await fetchWithHttpDebug(`${base}${BET_LEADERBOARD_PATH}?${qs.toString()}`, {
+    method: "GET",
+    headers: betAggUserAccessHeaders(),
+  });
+  const env = await readMallEnvelope(res);
+  if (res.status === 401) {
+    if (redirectIfMallSessionUnauthorized(res, env)) {
+      throw new MallUnauthorizedRedirectError();
+    }
+    throw new Error(env.message?.trim() || "Unauthorized");
+  }
+  assertMallSuccessHttp(env, res.status);
+  const data = requireMallObjectData(env);
+  const itemsRaw = data.items as unknown;
+  if (!Array.isArray(itemsRaw)) {
+    throw new Error("Malformed leaderboard list");
+  }
+  const items = itemsRaw
+    .filter((row): row is Record<string, unknown> => !!row && typeof row === "object" && !Array.isArray(row))
+    .map((row) => toLeaderboardRow(row));
+  const pagRaw = data.pagination as unknown;
+  const pagination =
+    pagRaw && typeof pagRaw === "object" && !Array.isArray(pagRaw)
+      ? normalizeOrderPagination(pagRaw as Record<string, unknown>)
+      : {
+          total: items.length,
+          per_page: Math.max(items.length, 1),
+          current_page: 1,
+          last_page: 1,
+        };
+  return { items, pagination };
 }

@@ -1,128 +1,138 @@
 import { useRouter } from "expo-router";
-import {
-  ActivityIndicator,
-  FlatList,
-  Pressable,
-  RefreshControl,
-  Text,
-  View,
-} from "react-native";
+import { useCallback, useMemo } from "react";
+import { Platform, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { BannerSlide } from "@/components/app/BannerCarousel";
 import { BannerCarousel } from "@/components/app/BannerCarousel";
-import { useBetEventsInfiniteQuery, useBetMarketsInfiniteQuery } from "@/features/bet/hooks";
+import { MarketsListView } from "@/features/bet/MarketsListView";
+import { useBannerGroupCodeQuery, useBetEventsInfiniteQuery } from "@/features/bet/hooks";
+import { betGameAssetCdnUri } from "@/lib/betCdn";
 import type { SportMarket } from "@/lib/api/betTypes";
 import { features } from "@/lib/config";
+import { useLocale } from "@/i18n/LocaleProvider";
+import { useWebTopTabBarInset } from "@/lib/navigation/useWebTopTabBarInset";
 
-function MarketRow({ item, onPress }: { item: SportMarket; onPress: () => void }) {
-  const eventName =
-    typeof item.event?.name === "string" && item.event.name.trim().length > 0
-      ? item.event.name
-      : `Event ${item.event_id}`;
-  return (
-    <Pressable
-      onPress={onPress}
-      className="flex-1 m-2 min-w-[140px] bg-surface-card rounded-xl border border-surface-border p-3 active:opacity-90"
-    >
-      <Text className="text-slate-400 text-xs" numberOfLines={1}>
-        {eventName}
-      </Text>
-      <Text className="text-slate-100 font-semibold mt-2" numberOfLines={2}>
-        Market #{item.id}
-      </Text>
-      <Text className="text-slate-500 text-xs mt-1">type {item.market_type}</Text>
-    </Pressable>
-  );
-}
+/** `GET /api/bet/games?per_page=…` for banner carousel; caps slide count. */
+const BET_HOME_BANNER_GAMES_PER_PAGE = 5;
 
 export default function BetHomeScreen() {
   const router = useRouter();
+  const { t } = useLocale();
   const insets = useSafeAreaInsets();
-  const eventsQ = useBetEventsInfiniteQuery(12);
-  const marketsQ = useBetMarketsInfiniteQuery({});
+  const webNavTop = useWebTopTabBarInset();
+  const bannerGroupQ = useBannerGroupCodeQuery();
+  const eventsQ = useBetEventsInfiniteQuery(BET_HOME_BANNER_GAMES_PER_PAGE, {
+    group_code: bannerGroupQ.data,
+    enabled: !!bannerGroupQ.data,
+  });
+  const { data: eventsData, error: eventsError, isError: eventsIsError, refetch: refetchEvents } =
+    eventsQ;
 
-  const eventRows = eventsQ.data?.pages.flatMap((p) => p.items) ?? [];
-  const marketRows = marketsQ.data?.pages.flatMap((p) => p.items) ?? [];
+  const eventRows = eventsData?.pages.flatMap((p) => p.items) ?? [];
 
-  const bannerSlides: BannerSlide[] = eventRows.slice(0, 8).map((ev) => ({
-    id: String(ev.id),
-    title: ev.name,
-    imageUrl: `https://picsum.photos/seed/betev${ev.id}/800/400`,
-  }));
+  const bannerSlides: BannerSlide[] = useMemo(
+    () =>
+      eventRows
+        .map((ev) => {
+          const imageUrl =
+            ev.bannerCdnUrl ??
+            betGameAssetCdnUri(ev.banner) ??
+            betGameAssetCdnUri(ev.main_media);
+          if (!imageUrl) {
+            return null;
+          }
+          return {
+            id: String(ev.id),
+            title: ev.name,
+            imageUrl,
+            ...(typeof ev.main_media === "string" && ev.main_media.trim().length > 0
+              ? { mainMedia: ev.main_media.trim() }
+              : {}),
+          };
+        })
+        .filter((s): s is BannerSlide => s !== null)
+        .slice(0, BET_HOME_BANNER_GAMES_PER_PAGE),
+    [eventRows],
+  );
+
+  const handleSlidePress = useCallback(
+    (s: BannerSlide) => {
+      const q = new URLSearchParams();
+      q.set("game_id", s.id);
+      q.set("title", s.title);
+      if (s.mainMedia) {
+        q.set("main_media", s.mainMedia);
+      }
+      router.push(`/(app)/markets?${q.toString()}`);
+    },
+    [router],
+  );
+
+  const handleMarketPress = useCallback(
+    (item: SportMarket) => {
+      router.push(`/(app)/markets/${item.id}`);
+    },
+    [router],
+  );
+
+  const handleRefreshExtra = useCallback(() => {
+    void refetchEvents();
+  }, [refetchEvents]);
+
+  const listHeader = useMemo(
+    () => (
+      <>
+        <BannerCarousel slides={bannerSlides} onSlidePress={handleSlidePress} />
+        {bannerGroupQ.isError ? (
+          <Text className="text-red-400 px-4 mb-2">
+            {bannerGroupQ.error instanceof Error
+              ? bannerGroupQ.error.message
+              : t("home.loadBannerConfigError")}
+          </Text>
+        ) : null}
+        {eventsIsError ? (
+          <Text className="text-red-400 px-4 mb-2">
+            {eventsError instanceof Error ? eventsError.message : t("home.loadGamesError")}
+          </Text>
+        ) : null}
+        <Text className="text-xl font-bold text-slate-100 px-4 mb-2">{t("home.markets")}</Text>
+      </>
+    ),
+    [
+      bannerGroupQ.error,
+      bannerGroupQ.isError,
+      bannerSlides,
+      eventsError,
+      eventsIsError,
+      handleSlidePress,
+      t,
+    ],
+  );
 
   if (!features.commerce) {
     return (
-      <View className="flex-1 items-center justify-center px-6" style={{ paddingTop: insets.top }}>
-        <Text className="text-slate-300 text-center">Catalog is off in app config features.commerce.</Text>
+      <View
+        className="flex-1 items-center justify-center px-6"
+        style={{ paddingTop: Platform.OS === "web" ? webNavTop : insets.top }}
+      >
+        <Text className="text-slate-300 text-center">{t("home.catalogOff")}</Text>
       </View>
     );
   }
 
-  const busy = eventsQ.isPending || marketsQ.isPending;
-  const err = eventsQ.isError || marketsQ.isError;
-  const refetching = eventsQ.isRefetching || marketsQ.isRefetching;
-
   return (
-    <View className="flex-1 bg-surface" style={{ paddingTop: insets.top + 8 }}>
-      <Text className="text-xl font-bold text-slate-100 px-4 mb-2">Markets</Text>
-      <FlatList
-        data={marketRows}
-        keyExtractor={(m) => String(m.id)}
-        numColumns={2}
-        columnWrapperStyle={{ paddingHorizontal: 8 }}
-        onEndReached={() => {
-          if (marketsQ.hasNextPage && !marketsQ.isFetchingNextPage) {
-            void marketsQ.fetchNextPage();
-          }
-        }}
-        onEndReachedThreshold={0.35}
-        ListHeaderComponent={
-          <>
-            <BannerCarousel
-              slides={bannerSlides.length > 0 ? bannerSlides : undefined}
-              onSlidePress={(s) => router.push(`/(app)/event/${s.id}`)}
-            />
-            {err ? (
-              <Text className="text-red-400 px-4 mb-2">
-                {eventsQ.error instanceof Error
-                  ? eventsQ.error.message
-                  : marketsQ.error instanceof Error
-                    ? marketsQ.error.message
-                    : "Could not load catalog."}
-              </Text>
-            ) : null}
-          </>
-        }
-        ListFooterComponent={
-          marketsQ.isFetchingNextPage ? (
-            <View className="py-4 items-center">
-              <ActivityIndicator color="#a5b4fc" />
-            </View>
-          ) : null
-        }
-        refreshControl={
-          <RefreshControl
-            refreshing={refetching}
-            onRefresh={() => {
-              void eventsQ.refetch();
-              void marketsQ.refetch();
-            }}
-            tintColor="#a5b4fc"
-          />
-        }
-        ListEmptyComponent={
-          busy ? (
-            <View className="py-12 items-center">
-              <ActivityIndicator color="#a5b4fc" />
-            </View>
-          ) : (
-            <Text className="text-slate-500 px-4">No open markets.</Text>
-          )
-        }
-        renderItem={({ item }) => (
-          <MarketRow item={item} onPress={() => router.push(`/(app)/market/${item.id}`)} />
-        )}
-        contentContainerStyle={{ paddingBottom: 100 }}
+    <View
+      className="flex-1 bg-surface"
+      style={{ paddingTop: Platform.OS === "web" ? webNavTop + 8 : insets.top + 8 }}
+    >
+      <Text className="text-xl font-bold text-slate-100 px-4 mb-2">{t("home.events")}</Text>
+      <MarketsListView
+        listHeader={listHeader}
+        marketsHeading={null}
+        onRefreshExtra={handleRefreshExtra}
+        onMarketPress={handleMarketPress}
+        contentPaddingTop={0}
+        contentPaddingBottom={100}
       />
     </View>
   );

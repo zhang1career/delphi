@@ -1,15 +1,10 @@
 import { useOrderQuery } from "@/features/orders/hooks";
-import { betOrderStatusLabel } from "@/lib/api/betTypes";
 import { useLocalSearchParams } from "expo-router";
 import { ActivityIndicator, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { PrepayStub } from "@/lib/api/checkoutTypes";
 
 const SCROLL_BOTTOM_EXTRA = 24;
-
-function formatMinor(n: number): string {
-  return `${(n / 100).toFixed(2)}`;
-}
 
 function formatTime(sec: number): string {
   try {
@@ -83,7 +78,7 @@ export default function OrderDetailScreen() {
   if (isSuccess && order === null) {
     return (
       <View className="flex-1 bg-surface items-center justify-center px-6">
-        <Text className="text-slate-400 text-center">Order not found.</Text>
+        <Text className="text-slate-400 text-center">Prediction not found.</Text>
       </View>
     );
   }
@@ -103,41 +98,26 @@ export default function OrderDetailScreen() {
     >
       {order.lines.map((line, idx) => (
         <View
-          key={`${line.kid}-${idx}`}
+          key={`${idx}-${line.market_id}-${line.selection}`}
           className="bg-surface-card border border-surface-border rounded-lg p-3 mb-2"
         >
-          <Text className="text-slate-200 text-sm">Selection kid {line.kid}</Text>
-          <Text className="text-slate-400 text-xs mt-1">Stake (points) {line.stake_points}</Text>
-          {line.decimal_odds_millis !== undefined ? (
-            <Text className="text-brand-muted text-sm mt-1">
-              Odds {(line.decimal_odds_millis / 1000).toFixed(2)}
-            </Text>
-          ) : null}
-          {line.potential_return_points !== undefined ? (
-            <Text className="text-slate-500 text-xs mt-1">
-              Potential return (points minor) {line.potential_return_points}
-            </Text>
-          ) : null}
-          {line.result !== undefined ? (
-            <Text className="text-slate-600 text-[10px] mt-2">Line result enum {line.result}</Text>
+          <Text className="text-slate-200 text-sm">
+            {line.pick_label?.trim() ?? line.selection}
+          </Text>
+          <Text className="text-slate-500 text-xs mt-1">Market #{line.market_id}</Text>
+          {line.result_label !== undefined ? (
+            <Text className="text-slate-400 text-xs mt-2">Outcome: {line.result_label}</Text>
+          ) : line.result !== undefined ? (
+            <Text className="text-slate-500 text-xs mt-2">Outcome code: {line.result}</Text>
           ) : null}
         </View>
       ))}
 
-      <Text className="text-slate-400 mt-6 capitalize">
-        Status: {betOrderStatusLabel(order.status)}
-      </Text>
-      <Text className="text-brand-muted text-lg mt-2">{formatMinor(order.total_price)} total (minor)</Text>
-      <Text className="text-slate-500 text-xs mt-2">
-        Points deducted (minor): {order.points_deduct_minor} · Cash payable (minor):{" "}
-        {order.cash_payable_minor}
+      <Text className="text-slate-400 mt-6">
+        Status: <Text className="text-slate-200 capitalize">{order.status_label ?? "—"}</Text>
       </Text>
       <Text className="text-slate-500 text-sm mt-4">Created: {formatTime(order.ct)}</Text>
       <Text className="text-slate-500 text-sm">Updated: {formatTime(order.ut)}</Text>
-
-      {order.checkout_phase ? (
-        <Text className="text-slate-500 text-xs mt-4">Checkout phase: {order.checkout_phase}</Text>
-      ) : null}
 
       {prepayStub ? (
         <View className="mt-6 pt-4 border-t border-surface-border gap-1">

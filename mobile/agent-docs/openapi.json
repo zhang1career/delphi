@@ -1,0 +1,741 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Delphi client — API gateway surfaces",
+    "version": "1.0.0",
+    "description": "Machine-oriented OpenAPI for **AI agents only**. Not exposed to end-user browsers without operator credentials.\n\nServed from **`GET /api/openapi.json`** or alias **`GET /api/agent/openapi.json`** when the host sets **`WEB_AGENT_OPENAPI_SECRET`**; send the same value as **`X-Agent-OpenAPI-Secret`** or **`Authorization: Bearer`**. If the secret is not configured on the host, these URLs respond **404** (no document for casual visitors).\n\n**Envelopes**\n- Most catalog / mall / bet JSON: `{ data, errorCode, message, _req_id }` (numeric `errorCode`, `0` = success).\n- User-agg auth: `{ errorCode, message?, data? }` with `errorCode === 0` on success.\n\n**Auth**\n- Mall-agg and authenticated bet routes (orders, place, points, snowflake, leaderboard): `Authorization: Bearer <access_token>` (JWT from login; gateway may rewrite for downstream).\n- Bet catalog GETs (games, markets, selections): typically no user header."
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "Resolved gateway origin from runtime config (Fusio public config `data.value.host`)."
+    }
+  ],
+  "tags": [
+    { "name": "Meta", "description": "API discovery" },
+    { "name": "UserAgg", "description": "Foundation user-aggregated auth" },
+    { "name": "MallAgg", "description": "Commerce catalog, orders, checkout" },
+    { "name": "Bet", "description": "Sports bet catalog and wallets" },
+    { "name": "CDN", "description": "Mall/game media on API gateway" }
+  ],
+  "paths": {
+    "/api/openapi.json": {
+      "get": {
+        "tags": ["Meta"],
+        "summary": "OpenAPI document (AI agents — credential required on host)",
+        "description": "Same payload as `/api/agent/openapi.json`. No public anonymous access when `WEB_AGENT_OPENAPI_SECRET` is set; without it hosts should return 404.",
+        "parameters": [
+          {
+            "name": "X-Agent-OpenAPI-Secret",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Must match host `WEB_AGENT_OPENAPI_SECRET` (or Bearer with same value)."
+          }
+        ],
+        "responses": {
+          "200": { "description": "Full OpenAPI 3.0 JSON" },
+          "403": { "description": "Wrong or missing agent credential" },
+          "404": { "description": "Host disabled OpenAPI or file missing" }
+        }
+      }
+    },
+    "/api/agent/openapi.json": {
+      "get": {
+        "tags": ["Meta"],
+        "summary": "Alias of GET /api/openapi.json",
+        "description": "Same contract and credential as `/api/openapi.json`.",
+        "parameters": [
+          {
+            "name": "X-Agent-OpenAPI-Secret",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Must match host `WEB_AGENT_OPENAPI_SECRET` (or Bearer with same value)."
+          }
+        ],
+        "responses": {
+          "200": { "description": "Full OpenAPI 3.0 JSON" },
+          "403": { "description": "Wrong or missing agent credential" },
+          "404": { "description": "Host disabled OpenAPI or file missing" }
+        }
+      }
+    },
+    "/api/user-agg/login": {
+      "post": {
+        "tags": ["UserAgg"],
+        "summary": "Sign in with password",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["login_key", "password"],
+                "properties": {
+                  "login_key": { "type": "string", "description": "Phone, email, or username" },
+                  "password": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "UserApi envelope with `data.access_token`, `data.refresh_token`, `data.user`"
+          }
+        }
+      },
+      "put": {
+        "tags": ["UserAgg"],
+        "summary": "Refresh session",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["refresh_token"],
+                "properties": {
+                  "refresh_token": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "UserApi envelope; `data.user` may be omitted (client merges prior user)"
+          }
+        }
+      }
+    },
+    "/api/user-agg/register": {
+      "post": {
+        "tags": ["UserAgg"],
+        "summary": "Start registration (verification channel)",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "description": "Multipart fields as implemented by the gateway (e.g. credential + profile)"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "UserApi envelope; may include `data.event_id` for verify step"
+          }
+        }
+      }
+    },
+    "/api/user-agg/register/verify": {
+      "post": {
+        "tags": ["UserAgg"],
+        "summary": "Complete registration with verification code",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["event_id", "code"],
+                "properties": {
+                  "event_id": { "type": "integer" },
+                  "code": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Session in UserApi envelope on success"
+          }
+        }
+      }
+    },
+    "/api/user-agg/reset-password": {
+      "post": {
+        "tags": ["UserAgg"],
+        "summary": "Request password reset notice",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["notice_channel", "notice_target"],
+                "properties": {
+                  "notice_channel": { "type": "string" },
+                  "notice_target": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "UserApi envelope"
+          }
+        }
+      }
+    },
+    "/api/user-agg/reset-password/verify": {
+      "post": {
+        "tags": ["UserAgg"],
+        "summary": "Complete password reset",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["event_id", "code", "new_password"],
+                "properties": {
+                  "event_id": { "type": "integer" },
+                  "code": { "type": "string" },
+                  "new_password": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "UserApi envelope"
+          }
+        }
+      }
+    },
+    "/api/mall-agg/products": {
+      "get": {
+        "tags": ["MallAgg"],
+        "security": [{ "MallBearer": [] }],
+        "summary": "Paged product catalog",
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "per_page", "in": "query", "schema": { "type": "integer", "default": 15 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Mall envelope; `data.items`, `data.pagination`"
+          }
+        }
+      }
+    },
+    "/api/mall-agg/products/search": {
+      "post": {
+        "tags": ["MallAgg"],
+        "security": [{ "MallBearer": [] }],
+        "summary": "Search products",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["query"],
+                "properties": {
+                  "query": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Mall envelope with search hits / product ids in `data.items`"
+          }
+        }
+      }
+    },
+    "/api/mall-agg/products/{id}": {
+      "get": {
+        "tags": ["MallAgg"],
+        "security": [{ "MallBearer": [] }],
+        "summary": "Product detail",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": {
+          "200": {
+            "description": "Mall envelope; product in `data`"
+          }
+        }
+      }
+    },
+    "/api/mall-agg/orders": {
+      "get": {
+        "tags": ["MallAgg"],
+        "security": [{ "MallBearer": [] }],
+        "summary": "List mall orders",
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "per_page", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Mall envelope; `data.items`, `data.pagination`"
+          }
+        }
+      },
+      "post": {
+        "tags": ["MallAgg"],
+        "security": [{ "MallBearer": [] }],
+        "summary": "Create mall order (lines)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["lines"],
+                "properties": {
+                  "lines": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["product_id", "quantity"],
+                      "properties": {
+                        "product_id": { "type": "integer" },
+                        "quantity": { "type": "integer", "minimum": 1 }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Mall envelope; order summary in `data`"
+          }
+        }
+      }
+    },
+    "/api/mall-agg/orders/{id}": {
+      "get": {
+        "tags": ["MallAgg"],
+        "security": [{ "MallBearer": [] }],
+        "summary": "Mall order detail",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": {
+          "200": {
+            "description": "Mall envelope; order may be under `data` or `data.order`"
+          }
+        }
+      }
+    },
+    "/api/mall-agg/checkout": {
+      "post": {
+        "tags": ["MallAgg"],
+        "security": [{ "MallBearer": [] }],
+        "summary": "Checkout mall order (payment / points)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["order_id"],
+                "properties": {
+                  "order_id": { "type": "integer" },
+                  "points_minor": { "type": "integer", "description": "Optional points to apply" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Mall envelope; order + `prepay` payload as implemented"
+          }
+        }
+      }
+    },
+    "/api/mall-agg/points": {
+      "get": {
+        "tags": ["MallAgg"],
+        "security": [{ "MallBearer": [] }],
+        "summary": "Mall points balance",
+        "responses": {
+          "200": {
+            "description": "Mall envelope; `data.balance_minor` (or nested `data.data`)"
+          }
+        }
+      }
+    },
+    "/api/bet/dict": {
+      "get": {
+        "tags": ["Bet"],
+        "summary": "Bet reference dictionaries (if exposed by gateway)",
+        "responses": {
+          "200": {
+            "description": "Mall envelope"
+          }
+        }
+      }
+    },
+    "/api/bet/games": {
+      "get": {
+        "tags": ["Bet"],
+        "summary": "Paged games / events list",
+        "description": "Each item is a `BetCatalogGame` with optional `banner` and `main_media` (CDN storage keys or absolute URLs). The mobile Sports tab banner carousel uses this endpoint for slide imagery.",
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "per_page", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Mall envelope; `data.items` are catalog games; `data.pagination` when paged.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data", "errorCode", "message", "_req_id"],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": { "$ref": "#/components/schemas/BetCatalogGame" }
+                        },
+                        "pagination": { "$ref": "#/components/schemas/BetListPagination" }
+                      }
+                    },
+                    "errorCode": { "type": "integer" },
+                    "message": { "type": "string" },
+                    "_req_id": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/bet/games/{gameId}": {
+      "get": {
+        "tags": ["Bet"],
+        "summary": "Game / event detail",
+        "description": "Single `BetCatalogGame`; includes `banner` and `main_media` when the gateway exposes them (same semantics as list items).",
+        "parameters": [{ "name": "gameId", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": {
+          "200": {
+            "description": "Mall envelope; `data` is one BetCatalogGame",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["data", "errorCode", "message", "_req_id"],
+                  "properties": {
+                    "data": { "$ref": "#/components/schemas/BetCatalogGame" },
+                    "errorCode": { "type": "integer" },
+                    "message": { "type": "string" },
+                    "_req_id": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/api/bet/markets": {
+      "get": {
+        "tags": ["Bet"],
+        "summary": "Paged markets",
+        "description": "Each `data.items[]` market may embed `game` (`BetCatalogGameSummary`) with `starts_at` (Unix ms kickoff).",
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "per_page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "game_id", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Mall envelope; `data.items` are markets; embedded `game.starts_at` when present."
+          }
+        }
+      }
+    },
+    "/api/bet/markets/{marketId}": {
+      "get": {
+        "tags": ["Bet"],
+        "summary": "Market detail",
+        "parameters": [{ "name": "marketId", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": {
+          "200": {
+            "description": "Mall envelope"
+          },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/api/bet/selections": {
+      "get": {
+        "tags": ["Bet"],
+        "summary": "Paged selections (outcomes)",
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "per_page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "market_id", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Mall envelope; selections list"
+          }
+        }
+      }
+    },
+    "/api/bet/selections/{selectionId}": {
+      "get": {
+        "tags": ["Bet"],
+        "summary": "Selection detail",
+        "parameters": [{ "name": "selectionId", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": {
+          "200": {
+            "description": "Mall envelope"
+          }
+        }
+      }
+    },
+    "/api/bet/orders": {
+      "get": {
+        "tags": ["Bet"],
+        "security": [{ "MallBearer": [] }],
+        "summary": "List user's bet orders",
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "per_page", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Mall envelope; `data.items`, `data.pagination`"
+          }
+        }
+      },
+      "post": {
+        "tags": ["Bet"],
+        "security": [{ "MallBearer": [] }],
+        "deprecated": true,
+        "summary": "Create draft bet order only (legacy; prefer POST /api/bet/place)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BetPlaceRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Mall envelope; draft order"
+          }
+        }
+      }
+    },
+    "/api/bet/orders/{orderId}": {
+      "get": {
+        "tags": ["Bet"],
+        "security": [{ "MallBearer": [] }],
+        "summary": "Bet order detail",
+        "parameters": [{ "name": "orderId", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": {
+          "200": {
+            "description": "Mall envelope; full order with `lines`"
+          },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/api/bet/checkout": {
+      "post": {
+        "tags": ["Bet"],
+        "security": [{ "MallBearer": [] }],
+        "deprecated": true,
+        "summary": "Settle draft bet order (legacy; prefer POST /api/bet/place)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["order_id"],
+                "properties": {
+                  "order_id": { "type": "integer" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Mall envelope; `data.order` with settled order"
+          }
+        }
+      }
+    },
+    "/api/bet/place": {
+      "post": {
+        "tags": ["Bet"],
+        "security": [{ "MallBearer": [] }],
+        "summary": "Place bet (single step: create + settle)",
+        "description": "Replaces legacy `POST /api/bet/orders` followed by `POST /api/bet/checkout`. Debit stake server-side atomically.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BetPlaceRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Mall envelope; settled order at `data` or nested `data.order` (same variants as checkout)"
+          }
+        }
+      }
+    },
+    "/api/bet/points": {
+      "get": {
+        "tags": ["Bet"],
+        "security": [{ "MallBearer": [] }],
+        "summary": "Bet wallet points balance",
+        "responses": {
+          "200": {
+            "description": "Mall envelope; `data.balance_minor`"
+          }
+        }
+      }
+    },
+    "/api/cdn/2020-05-31/d/{distribution_id}/{filepath}": {
+      "get": {
+        "tags": ["CDN"],
+        "summary": "Fetch object from CDN distribution on gateway",
+        "parameters": [
+          {
+            "name": "distribution_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "filepath",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Relative object key/path segments"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Binary or image payload"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "MallBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT `access_token` from `POST /api/user-agg/login`; used for mall-agg and authenticated bet routes on the gateway."
+      }
+    },
+    "schemas": {
+      "BetPlaceLine": {
+        "type": "object",
+        "required": ["kid", "stake_points"],
+        "properties": {
+          "kid": { "type": "integer", "description": "Selection id (`kid`)" },
+          "stake_points": { "type": "integer", "minimum": 1 },
+          "expected_odds_millis": {
+            "type": "integer",
+            "description": "Required for `POST /api/bet/place`: decimal odds × 1000 as shown for this line (e.g. 1850 = 1.85); server compares at lock"
+          }
+        }
+      },
+      "BetPlaceRequest": {
+        "type": "object",
+        "required": ["lines"],
+        "properties": {
+          "lines": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/BetPlaceLine" }
+          }
+        }
+      },
+      "MallEnvelopeHint": {
+        "type": "object",
+        "description": "`data` typed per route; numeric `errorCode` (often also accepted as string).",
+        "properties": {
+          "data": {},
+          "errorCode": {},
+          "message": { "type": "string" },
+          "_req_id": { "type": "string" }
+        }
+      },
+      "BetListPagination": {
+        "type": "object",
+        "properties": {
+          "total": { "type": "integer" },
+          "per_page": { "type": "integer" },
+          "current_page": { "type": "integer" },
+          "last_page": { "type": "integer" }
+        }
+      },
+      "BetCatalogGameSummary": {
+        "type": "object",
+        "description": "Embedded game on `GET /api/bet/markets` items (`data.items[].game`).",
+        "required": ["id", "status"],
+        "properties": {
+          "id": { "type": "integer" },
+          "status": { "type": "integer" },
+          "title": { "type": "string", "description": "Display title (preferred over legacy `name`)" },
+          "name": { "type": "string", "description": "Legacy field; use `title` when returned by API" },
+          "starts_at": {
+            "type": "integer",
+            "description": "Kickoff Unix timestamp in milliseconds"
+          }
+        }
+      },
+      "BetCatalogGame": {
+        "type": "object",
+        "description": "Bet catalog game row from `GET /api/bet/games` / `GET /api/bet/games/{gameId}`. Primary label is `title`; `banner` is a CDN key or absolute URL for the Sports carousel. Detail uses `starts_at` (not `start_at`).",
+        "required": ["id", "status", "winning_selection_ids"],
+        "properties": {
+          "id": { "type": "integer" },
+          "cms_id": { "type": "integer" },
+          "status": { "type": "integer" },
+          "winning_selection_ids": { "type": "array", "items": { "type": "integer" } },
+          "ut": { "type": "integer", "description": "Last update time (milliseconds)" },
+          "title": { "type": "string", "description": "Display title (preferred over legacy `name`)" },
+          "name": { "type": "string", "description": "Legacy field; use `title` when returned by API" },
+          "description": { "type": "string", "nullable": true },
+          "starts_at": {
+            "type": "integer",
+            "description": "Kickoff Unix timestamp in milliseconds; may be omitted"
+          },
+          "banner": {
+            "type": "string",
+            "description": "Banner image: CDN object key or absolute URL"
+          },
+          "main_media": {
+            "type": "string",
+            "description": "Main image: CDN key or absolute URL"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,10 +1,11 @@
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { fetchBetOrder, fetchBetOrdersPage, fetchBetPointsBalance } from "@/lib/api/betOrdersApi";
+import { fetchBetOrder, fetchBetOrdersPage } from "@/lib/api/betOrdersApi";
+import { fetchMallPointsBalance } from "@/lib/api/mallOrdersApi";
 import { useAuthStore } from "@/stores/authStore";
 
 const DEFAULT_PER_PAGE = 15;
 
-/** Bet orders list (pagination). */
+/** Paginated prediction orders (`GET /api/bet/orders`). */
 export function useOrdersInfiniteQuery(perPage: number = DEFAULT_PER_PAGE) {
   const token = useAuthStore((s) => s.accessToken);
   return useInfiniteQuery({
@@ -23,7 +24,7 @@ export function useOrdersInfiniteQuery(perPage: number = DEFAULT_PER_PAGE) {
   });
 }
 
-/** Bet single order (`BetOrderFull`). */
+/** Single prediction order detail. */
 export function useOrderQuery(orderId: string) {
   const token = useAuthStore((s) => s.accessToken);
   return useQuery({
@@ -36,13 +37,14 @@ export function useOrderQuery(orderId: string) {
   });
 }
 
-export function useBetPointsBalanceQuery() {
+/** Mall redeemable points balance for checkout (`GET /api/mall-agg/points`). */
+export function useMallPointsBalanceQuery() {
   const token = useAuthStore((s) => s.accessToken);
   return useQuery({
-    queryKey: ["bet-points", token],
+    queryKey: ["mall-points", token],
     queryFn: () => {
       if (!token) throw new Error("Not signed in");
-      return fetchBetPointsBalance();
+      return fetchMallPointsBalance();
     },
     enabled: !!token,
   });

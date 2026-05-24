@@ -24,6 +24,28 @@ function envTrim(name) {
   return String(v).trim();
 }
 
+/** Metro web bundles `EXPO_PUBLIC_*` into JS; `APP_MANIFEST` drops `extra` keys that are undefined at stringify time. Mirror env here so static web matches `.env` even when Metro reuses a stale manifest cache. */
+const SF_SNOWFLAKE_ACCESS_KEY_VALUE = envTrim("SF_SNOWFLAKE_ACCESS_KEY");
+if (SF_SNOWFLAKE_ACCESS_KEY_VALUE) {
+  process.env.EXPO_PUBLIC_SF_SNOWFLAKE_ACCESS_KEY = SF_SNOWFLAKE_ACCESS_KEY_VALUE;
+}
+const API_CONFIG_PUBLIC_URL_VALUE = envTrim("API_CONFIG_PUBLIC_URL");
+if (API_CONFIG_PUBLIC_URL_VALUE) {
+  process.env.EXPO_PUBLIC_API_CONFIG_PUBLIC_URL = API_CONFIG_PUBLIC_URL_VALUE;
+}
+const API_CONFIG_PUBLIC_KEY_VALUE = envTrim("API_CONFIG_PUBLIC_KEY");
+if (API_CONFIG_PUBLIC_KEY_VALUE) {
+  process.env.EXPO_PUBLIC_API_CONFIG_PUBLIC_KEY = API_CONFIG_PUBLIC_KEY_VALUE;
+}
+const API_CONFIG_ACCESS_KEY_VALUE = envTrim("API_CONFIG_ACCESS_KEY");
+if (API_CONFIG_ACCESS_KEY_VALUE) {
+  process.env.EXPO_PUBLIC_API_CONFIG_ACCESS_KEY = API_CONFIG_ACCESS_KEY_VALUE;
+}
+const APP_LOG_LEVEL_VALUE = envTrim("APP_LOG_LEVEL");
+if (APP_LOG_LEVEL_VALUE) {
+  process.env.EXPO_PUBLIC_APP_LOG_LEVEL = APP_LOG_LEVEL_VALUE;
+}
+
 /** Comma-separated hostnames/IPs for NSExceptionDomains (cleartext HTTP); see docs/TODO.md. */
 function parseIosAtsInsecureHttpDomains() {
   const raw = envTrim("IOS_ATS_INSECURE_HTTP_DOMAINS");
@@ -38,6 +60,8 @@ const APP_DISPLAY_NAME = envTrim("APP_DISPLAY_NAME");
 const APP_VERSION = envTrim("APP_VERSION");
 const APP_MODULE_NAME = envTrim("APP_MODULE_NAME");
 const BUNDLE_ID = envTrim("BUNDLE_ID");
+/** Web 挂在子路径时设置，如 `/delphi`；导出前需与 nginx `location` 一致。不设则按站点根 `/`（本地 dev 常见）。 */
+const WEB_BASE_PATH = envTrim("WEB_BASE_PATH");
 
 /** @type {import('@expo/config').ExpoConfig} */
 module.exports = {
@@ -74,8 +98,16 @@ module.exports = {
       bundler: "metro",
       favicon: "./assets/images/favicon.png",
     },
+    ...(WEB_BASE_PATH
+      ? {
+          experiments: {
+            baseUrl: WEB_BASE_PATH,
+          },
+        }
+      : {}),
     plugins: [
       "expo-router",
+      "expo-localization",
       "expo-secure-store",
       "./plugins/withIosEnvSyncPodfile.js",
       ["./plugins/withIosAtsInsecureHttp.js", { domains: parseIosAtsInsecureHttpDomains() }],
@@ -85,11 +117,18 @@ module.exports = {
       apiConfigPublicUrl: envTrim("API_CONFIG_PUBLIC_URL"),
       apiConfigPublicKey: envTrim("API_CONFIG_PUBLIC_KEY"),
       apiConfigAccessKey: envTrim("API_CONFIG_ACCESS_KEY"),
-      apiGatewayPort: envTrim("API_GATEWAY_PORT"),
-      servFdPort: envTrim("SERV_FD_PORT"),
-      cdnDistributionId: envTrim("CDN_DISTRIBUTION_ID"),
+      cdnDistributionId: envTrim("SF_CDN_DISTRIBUTION_ID"),
+      snowflakeAccessKey: SF_SNOWFLAKE_ACCESS_KEY_VALUE,
+      /** Web dev: must match resolved gateway base URL; Metro forwards this origin server-side (avoids browser CORS). */
+      webDevGatewayProxyOrigin: envTrim("WEB_DEV_GATEWAY_PROXY_ORIGIN"),
       tokenRefreshIntervalMs: (() => {
         const raw = process.env.TOKEN_REFRESH_INTERVAL_MS;
+        if (raw == null || String(raw).trim() === "") return undefined;
+        const n = Number.parseInt(String(raw), 10);
+        return Number.isFinite(n) && n > 0 ? n : undefined;
+      })(),
+      hostRefreshIntervalMs: (() => {
+        const raw = process.env.HOST_REFRESH_INTERVAL_MS;
         if (raw == null || String(raw).trim() === "") return undefined;
         const n = Number.parseInt(String(raw), 10);
         return Number.isFinite(n) && n > 0 ? n : undefined;
