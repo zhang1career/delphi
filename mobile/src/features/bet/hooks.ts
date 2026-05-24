@@ -19,7 +19,8 @@ import {
 import { useAuthStore } from "@/stores/authStore";
 
 const DEFAULT_PER_PAGE = 15;
-const MARKET_QUOTE_HISTORY_REFRESH_MS = 5 * 60 * 1000;
+/** Shared poll interval for list-row current quote + history chart (5 min). */
+export const MARKET_QUOTE_REFRESH_MS = 5 * 60 * 1000;
 
 /** Config center `key=data` → `banners.code` for home banner carousel `group_code`. */
 export function useBannerGroupCodeQuery() {
@@ -130,7 +131,7 @@ export function useBetMarketQuoteHistoryQuery(
   const numeric = Number.parseInt(marketId, 10);
   const ok = Number.isFinite(numeric) && numeric >= 1;
   const interval = options?.interval ?? "1h";
-  const refreshMs = options?.staleTime ?? MARKET_QUOTE_HISTORY_REFRESH_MS;
+  const refreshMs = options?.staleTime ?? MARKET_QUOTE_REFRESH_MS;
   return useQuery({
     queryKey: ["bet-market-quote-history", marketId, interval, options?.from ?? "_", options?.to ?? "_"],
     queryFn: () =>
@@ -142,7 +143,7 @@ export function useBetMarketQuoteHistoryQuery(
     enabled: (options?.enabled !== false) && ok,
     staleTime: refreshMs,
     gcTime: refreshMs * 2,
-    refetchInterval: options?.refetchInterval ?? MARKET_QUOTE_HISTORY_REFRESH_MS,
+    refetchInterval: options?.refetchInterval ?? MARKET_QUOTE_REFRESH_MS,
     refetchOnMount: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,

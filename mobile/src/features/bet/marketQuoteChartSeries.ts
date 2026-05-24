@@ -1,5 +1,6 @@
 import {
   MARKET_QUOTE_OUTCOME_CODES,
+  formatShareBp,
   quoteOutcomeByCode,
   type MarketQuoteSnapshot,
 } from "@/lib/api/marketQuote";
@@ -17,6 +18,13 @@ export type QuoteChartSeries = {
   points: QuoteChartPoint[];
 };
 
+export type QuoteDisplayRow = {
+  outcome_code: string;
+  label: string;
+  color: string;
+  valueLabel: string;
+};
+
 export const QUOTE_OUTCOME_CHART_COLORS: Record<string, string> = {
   home_win: "#6366f1",
   draw: "#94a3b8",
@@ -28,6 +36,9 @@ export const QUOTE_OUTCOME_SHORT_LABELS: Record<string, string> = {
   draw: "X",
   away_win: "2",
 };
+
+/** Bottom → top stacking order for 1X2 stacked area charts. */
+export const QUOTE_1X2_STACK_ORDER = MARKET_QUOTE_OUTCOME_CODES;
 
 const EVENT_VS_SPLIT = /\s+vs\.?\s+|\s+v\s+/i;
 
@@ -69,11 +80,29 @@ export function formatChartAxisDate(ms: number): string {
   return `${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
+export function buildCurrentQuoteRows(
+  quote: MarketQuoteSnapshot,
+  options: { eventName?: string; colors: Record<string, string> },
+): QuoteDisplayRow[] {
+  const teams = parseEventTeamsForChart(options.eventName ?? "");
+  return MARKET_QUOTE_OUTCOME_CODES.map((outcome_code) => {
+    const outcome = quoteOutcomeByCode(quote, outcome_code);
+    const shareBp = outcome?.share_bp ?? 0;
+    return {
+      outcome_code,
+      label: outcomeLegendLabel(outcome_code, teams),
+      color: options.colors[outcome_code] ?? "#64748b",
+      valueLabel: formatShareBp(shareBp),
+    };
+  });
+}
+
 export function buildQuoteHistorySeries(
   items: MarketQuoteSnapshot[],
-  options?: { eventName?: string },
+  options?: { eventName?: string; colors?: Record<string, string> },
 ): QuoteChartSeries[] {
   const teams = parseEventTeamsForChart(options?.eventName ?? "");
+  const colors = options?.colors ?? QUOTE_OUTCOME_CHART_COLORS;
   const sorted = items
     .filter((item) => item.as_of !== null && item.as_of > 0)
     .slice()
@@ -91,10 +120,17 @@ export function buildQuoteHistorySeries(
     return {
       outcome_code,
       label: outcomeLegendLabel(outcome_code, teams),
-      color: QUOTE_OUTCOME_CHART_COLORS[outcome_code] ?? "#64748b",
+      color: colors[outcome_code] ?? "#64748b",
       points,
     };
   });
+}
+
+export function orderSeriesFor1X2Stack(series: QuoteChartSeries[]): QuoteChartSeries[] {
+  const byCode = new Map(series.map((s) => [s.outcome_code, s]));
+  return QUOTE_1X2_STACK_ORDER.map((code) => byCode.get(code)).filter(
+    (s): s is QuoteChartSeries => s !== undefined,
+  );
 }
 
 export function quoteHistoryTimeDomain(series: QuoteChartSeries[]): { min: number; max: number } | null {
@@ -149,4 +185,73 @@ export function plotPointsToPath(plotPoints: PlotPoint[]): string {
   return plotPoints
     .map((p, idx) => `${idx === 0 ? "M" : "L"} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`)
     .join(" ");
+}
+
+export type StackedAreaPath = {
+  outcome_code: string;
+  color: string;
+  d: string;
+};
+
+/** 100% stacked area paths; `series` must be ordered bottom → top (1 → X → 2). */
+export function buildStackedAreaPaths(
+  series: QuoteChartSeries[],
+  plotWidth: number,
+  plotHeight: number,
+  domain: { min: number; max: number },
+): StackedAreaPath[] {
+  if (series.length === 0 || plotWidth <= 0 || plotHeight <= 0) {
+    return [];
+  }
+  const pointCount = series[0]?.points.length ?? 0;
+  if (pointCount === 0) {
+    return [];
+  }
+
+  const span = domain.max - domain.min;
+  const xAt = (t: number, idx: number): number => {
+    const xRatio = span > 0 ? (t - domain.min) / span : pointCount > 1 ? idx / (pointCount - 1) : 0.5;
+    return xRatio * plotWidth;
+  };
+  const yAt = (sharePct: number): number => plotHeight - (Math.min(100, Math.max(0, sharePct)) / 100) * plotHeight;
+
+  return series.map((s, seriesIdx) => {
+    const topEdge: PlotPoint[] = [];
+    const bottomEdge: PlotPoint[] = [];
+
+    for (let i = 0; i < pointCount; i++) {
+      let cumBottom = 0;
+      let cumTop = 0;
+      for (let j = 0; j <= seriesIdx; j++) {
+        const share = series[j]?.points[i]?.sharePct ?? 0;
+        if (j < seriesIdx) {
+          cumBottom += share;
+        }
+        if (j === seriesIdx) {
+          cumTop = cumBottom + share;
+        }
+      }
+      const t = s.points[i]?.t ?? 0;
+      const x = xAt(t, i);
+      topEdge.push({ x, y: yAt(cumTop) });
+      bottomEdge.push({ x, y: yAt(cumBottom) });
+    }
+
+    if (topEdge.length === 0) {
+      return { outcome_code: s.outcome_code, color: s.color, d: "" };
+    }
+
+    const topPath = topEdge
+      .map((p, idx) => `${idx === 0 ? "M" : "L"} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`)
+      .join(" ");
+    const bottomPath = [...bottomEdge]
+      .reverse()
+      .map((p) => `L ${p.x.toFixed(2)} ${p.y.toFixed(2)}`)
+      .join(" ");
+    return {
+      outcome_code: s.outcome_code,
+      color: s.color,
+      d: `${topPath} ${bottomPath} Z`,
+    };
+  });
 }

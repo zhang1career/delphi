@@ -10,9 +10,14 @@ import {
   type ListRenderItemInfo,
 } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
-import { useBetMarketsInfiniteQuery } from "@/features/bet/hooks";
+import {
+  MARKET_QUOTE_REFRESH_MS,
+  useBetMarketQuotesQuery,
+  useBetMarketsInfiniteQuery,
+} from "@/features/bet/hooks";
 import { MarketQuoteHistoryChart } from "@/features/bet/MarketQuoteHistoryChart";
 import type { SportMarket } from "@/lib/api/betTypes";
+import { emptyMarketQuoteSnapshot, type MarketQuoteSnapshot } from "@/lib/api/marketQuote";
 import { formatKickoffMs } from "@/lib/formatKickoff";
 import { useLocale } from "@/i18n/LocaleProvider";
 
@@ -33,9 +38,11 @@ function marketRowTitle(item: SportMarket): string {
 
 const MarketRow = memo(function MarketRow({
   item,
+  quote,
   onPress,
 }: {
   item: SportMarket;
+  quote: MarketQuoteSnapshot;
   onPress: (item: SportMarket) => void;
 }) {
   const { t } = useLocale();
@@ -55,11 +62,18 @@ const MarketRow = memo(function MarketRow({
 
       <MarketQuoteHistoryChart
         marketId={item.id}
+        marketType={item.type}
+        quote={quote}
         eventName={gameTitle}
         className="mt-3"
       />
 
-      <Text className="text-slate-500 text-xs mt-2">{startsAtLabel}</Text>
+      <View className="flex-row items-center justify-between mt-2">
+        <Text className="text-slate-500 text-xs">{startsAtLabel}</Text>
+        <Text className="text-slate-500 text-xs">
+          {t("markets.totalPicks")}: {quote.total_picks}
+        </Text>
+      </View>
     </Pressable>
   );
 });
@@ -106,6 +120,21 @@ export function MarketsListView({
     refetch: refetchMarkets,
   } = marketsQ;
   const rows = marketsData?.pages.flatMap((p) => p.items) ?? [];
+  const marketIds = useMemo(() => rows.map((row) => row.id), [rows]);
+  const quotesQ = useBetMarketQuotesQuery(marketIds, {
+    refetchInterval: MARKET_QUOTE_REFRESH_MS,
+  });
+  const quoteByMarketId = useMemo(() => {
+    const map = new Map<number, MarketQuoteSnapshot>();
+    for (const item of rows) {
+      map.set(item.id, item.quote ?? emptyMarketQuoteSnapshot());
+    }
+    for (const batch of quotesQ.data ?? []) {
+      map.set(batch.market_id, batch.quote);
+    }
+    return map;
+  }, [rows, quotesQ.data]);
+
   const marketsErr: string | null = marketsIsError
     ? marketsError instanceof Error
       ? marketsError.message
@@ -138,6 +167,7 @@ export function MarketsListView({
 
   const handleRefresh = useCallback(() => {
     void refetchMarkets();
+    void queryClient.invalidateQueries({ queryKey: ["bet-market-quotes"] });
     void queryClient.invalidateQueries({ queryKey: ["bet-market-quote-history"] });
     void onRefreshExtra?.();
   }, [onRefreshExtra, queryClient, refetchMarkets]);
@@ -154,9 +184,13 @@ export function MarketsListView({
 
   const renderItem = useCallback(
     ({ item }: ListRenderItemInfo<SportMarket>) => (
-      <MarketRow item={item} onPress={onMarketPress} />
+      <MarketRow
+        item={item}
+        quote={quoteByMarketId.get(item.id) ?? emptyMarketQuoteSnapshot()}
+        onPress={onMarketPress}
+      />
     ),
-    [onMarketPress],
+    [onMarketPress, quoteByMarketId],
   );
 
   const listEmptyComponent = useMemo(
