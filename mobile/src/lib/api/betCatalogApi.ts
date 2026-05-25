@@ -112,6 +112,13 @@ function optionalNonEmptyString(value: unknown): string | null {
   return null;
 }
 
+function optionalRichText(value: unknown): string | null {
+  if (value === null) {
+    return null;
+  }
+  return optionalNonEmptyString(value);
+}
+
 function sideIconCdnUrl(cdnBase: string, iconRef: string | null): string | null {
   if (iconRef === null) {
     return null;
@@ -134,6 +141,8 @@ function toEventSummary(row: Record<string, unknown>, cdnBase: string): SportEve
     status,
     side_a_icon_url: sideIconCdnUrl(cdnBase, optionalNonEmptyString(row.side_a_icon)),
     side_b_icon_url: sideIconCdnUrl(cdnBase, optionalNonEmptyString(row.side_b_icon)),
+    side_a_info: optionalRichText(row.side_a_info),
+    side_b_info: optionalRichText(row.side_b_info),
   };
 }
 

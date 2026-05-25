@@ -33,6 +33,10 @@ export type SportEventSummary = {
   side_a_icon_url: string | null;
   /** Resolved from `game.side_b_icon` via mall CDN; `null` → UI placeholder. */
   side_b_icon_url: string | null;
+  /** Rich HTML from CMS; detail `GET /api/bet/markets/{id}` only; may be null. */
+  side_a_info?: string | null;
+  /** Rich HTML from CMS; detail `GET /api/bet/markets/{id}` only; may be null. */
+  side_b_info?: string | null;
 };
 
 export type SportMarket = {

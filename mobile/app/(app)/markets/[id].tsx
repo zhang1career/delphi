@@ -19,6 +19,7 @@ import type { SportSelection } from "@/lib/api/betTypes";
 import { emptyMarketQuoteSnapshot, formatShareBp, quoteOutcomeByCode } from "@/lib/api/marketQuote";
 import { formatKickoffMs } from "@/lib/formatKickoff";
 import { isThreeWayLineup, MatchResultThreeWayRow } from "@/features/bet/MatchResultThreeWay";
+import { RichHtmlBlock } from "@/components/ui/RichHtmlBlock";
 import { features } from "@/lib/config";
 import { buildLoginHref } from "@/lib/auth/postLoginReturn";
 import { useLocale } from "@/i18n/LocaleProvider";
@@ -133,14 +134,15 @@ export default function MarketDetailScreen() {
       ? market.game.name
       : `Game ${market.game_id}`;
 
-  const bottomPad = insets.bottom + 100;
+  const bottomPad = insets.bottom + 24;
 
   const contentShellClass =
     Platform.OS === "web" ? "w-full max-w-2xl self-center px-2" : "w-full";
-  const footerBarClass = Platform.OS === "web" ? "w-full max-w-2xl self-center px-4" : "px-4";
   const showThreeWay = isThreeWayLineup(lines);
 
   const submitBlocked = lines.length === 0 || mutate.isPending;
+  const hasSideAInfo =
+    typeof market.game?.side_a_info === "string" && market.game.side_a_info.trim().length > 0;
 
   return (
     <View className="flex-1 bg-surface">
@@ -198,37 +200,37 @@ export default function MarketDetailScreen() {
           )}
           {lines.length === 0 ? (
             <Text className="text-slate-500 px-4">{t("markets.noOpenSelections")}</Text>
+          ) : (
+            <View className="px-4 mt-3">
+              <Pressable
+                accessibilityLabel={t("markets.submitPrediction")}
+                disabled={submitBlocked}
+                onPress={() => {
+                  if (!accessToken?.trim()) {
+                    router.push(buildLoginHref(`/(app)/markets/${marketId}`));
+                    return;
+                  }
+                  mutate.mutate();
+                }}
+                className={`py-3.5 rounded-xl items-center justify-center ${
+                  submitBlocked ? "bg-slate-600 opacity-70" : "bg-brand active:opacity-90"
+                }`}
+              >
+                {mutate.isPending ? (
+                  <ActivityIndicator color="#f8fafc" />
+                ) : (
+                  <Text className="text-white font-semibold text-base">{t("markets.submitPrediction")}</Text>
+                )}
+              </Pressable>
+            </View>
+          )}
+          {lines.length > 0 && hasSideAInfo ? (
+            <View className="mx-4 mt-4 border-t border-surface-border" />
           ) : null}
+          <RichHtmlBlock html={market.game?.side_a_info} />
+          <RichHtmlBlock html={market.game?.side_b_info} />
         </View>
       </ScrollView>
-
-      <View
-        className="absolute left-0 right-0 border-t border-surface-border bg-surface"
-        style={{ bottom: 0, paddingBottom: insets.bottom }}
-      >
-        <View className={footerBarClass}>
-          <Pressable
-            accessibilityLabel={t("markets.submitPrediction")}
-            disabled={submitBlocked}
-            onPress={() => {
-              if (!accessToken?.trim()) {
-                router.push(buildLoginHref(`/(app)/markets/${marketId}`));
-                return;
-              }
-              mutate.mutate();
-            }}
-            className={`my-3 py-3.5 rounded-xl items-center justify-center ${
-              submitBlocked ? "bg-slate-600 opacity-70" : "bg-brand active:opacity-90"
-            }`}
-          >
-            {mutate.isPending ? (
-              <ActivityIndicator color="#f8fafc" />
-            ) : (
-              <Text className="text-white font-semibold text-base">{t("markets.submitPrediction")}</Text>
-            )}
-          </Pressable>
-        </View>
-      </View>
     </View>
   );
 }
